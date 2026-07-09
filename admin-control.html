@@ -610,13 +610,15 @@
         const agendaItems = Object.entries(agendaCache).map(([k, v]) => ({ fbKey: k, ...v }))
             .sort((a, b) => (a.orden || 0) - (b.orden || 0));
 
+        const disp = agendaItems.filter(a => !a.tema || !a.tema.trim());
+        const hayDisponible = disp.length > 0;
+
         container.innerHTML = `
             <table class="admin-table">
                 <thead><tr>
                     <th>Tema</th>
                     <th style="width:70px;text-align:center">Votos</th>
-                    <th style="width:200px;text-align:center">Agendar en</th>
-                    <th style="width:100px;text-align:right">Acción</th>
+                    <th style="width:160px;text-align:center">Acción</th>
                 </tr></thead>
                 <tbody>
                     ${items.map(p => `
@@ -624,22 +626,18 @@
                             <td><strong>${p.tema}</strong></td>
                             <td style="text-align:center"><span class="num-votos"><i class="fas fa-heart"></i> ${p.votos || 0}</span></td>
                             <td style="text-align:center">
-                                <select class="semana-select" id="ap-sel-${p.firebaseKey}">
-                                    ${agendaItems.map(ag => {
-                                        const ocupado = ag.tema && ag.tema.trim() !== '';
-                                        return `<option value="${ag.fbKey}">Sem ${ag.orden || '?'} ${ocupado ? '('+ag.tema+')' : '(Disponible)'}</option>`;
-                                    }).join('')}
-                                    <option value="__NUEVA__">+ Crear nueva semana</option>
-                                </select>
-                            </td>
-                            <td style="text-align:right">
-                                <button class="btn-sm btn-approve" onclick="aprobarTema(this, '${p.firebaseKey}')"><i class="fas fa-check"></i> Aprobar</button>
+                                <button class="btn-sm btn-approve" onclick="aprobarTema(this, '${p.firebaseKey}')">
+                                    <i class="fas fa-check"></i> ${hayDisponible ? 'Aprobar' : 'Crear Semana'}
+                                </button>
                                 <button class="btn-sm btn-delete" onclick="eliminarPropuesta('${p.firebaseKey}')"><i class="fas fa-trash"></i></button>
                             </td>
                         </tr>
                     `).join('')}
                 </tbody>
             </table>
+            <p style="font-size:0.75rem;color:var(--text-light);margin-top:0.5rem;">
+                <i class="fas fa-info-circle"></i> ${hayDisponible ? 'Se asigna automáticamente a la primera semana disponible.' : 'No hay semanas libres. Se creará una nueva automáticamente.'}
+            </p>
         `;
     }
 
@@ -729,38 +727,32 @@
 
     /* ─── Admin Actions ─── */
     function aprobarTema(btn, propuestaId) {
-        const tr = btn.closest('tr');
-        const select = tr ? tr.querySelector('.semana-select') : null;
-        const valor = select ? select.value : '';
         const propuesta = propuestasCache[propuestaId];
-
         if (!propuesta) { toast('Error: propuesta no encontrada'); return; }
-        if (!valor) { toast('Error: no se encontró el selector de semana'); return; }
-
-        if (valor === '__NUEVA__') {
-            agregarSemanaParaPropuesta(propuestaId);
-            return;
-        }
-
-        const agendaItem = agendaCache[valor];
-        if (agendaItem && agendaItem.tema && agendaItem.tema.trim() !== '') {
-            if (!confirm('Esa semana ya tiene tema "' + agendaItem.tema + '". ¿Sobrescribir?')) return;
-        }
 
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i>';
 
-        const updates = {};
-        updates['agenda/' + valor + '/tema'] = propuesta.tema;
-        updates['propuestas/' + propuestaId] = null;
-        updates['votantes/' + propuestaId] = null;
+        const agendaItems = Object.entries(agendaCache).map(([k, v]) => ({ fbKey: k, ...v }));
+        const disponible = agendaItems
+            .filter(a => !a.tema || !a.tema.trim())
+            .sort((a, b) => (a.orden || 0) - (b.orden || 0));
 
-        db.ref().update(updates)
-            .then(() => toast('✓ Tema aprobado en semana ' + (agendaItem ? agendaItem.orden : '?')))
-            .catch(() => { toast('Error al aprobar'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Aprobar'; });
+        if (disponible.length > 0) {
+            const semana = disponible[0];
+            const updates = {};
+            updates['agenda/' + semana.fbKey + '/tema'] = propuesta.tema;
+            updates['propuestas/' + propuestaId] = null;
+            updates['votantes/' + propuestaId] = null;
+            db.ref().update(updates)
+                .then(() => toast('✓ Asignado a semana ' + (semana.orden || '?')))
+                .catch(() => { toast('Error al aprobar'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Aprobar'; });
+        } else {
+            agregarSemanaParaPropuesta(propuestaId, btn);
+        }
     }
 
-    function agregarSemanaParaPropuesta(propuestaId) {
+    function agregarSemanaParaPropuesta(propuestaId, btn) {
         const propuesta = propuestasCache[propuestaId];
         if (!propuesta) return;
 
@@ -777,7 +769,10 @@
             d.setDate(d.getDate() + 7);
             nuevaFecha = d.toISOString().split('T')[0];
         } else {
-            nuevaFecha = nextFridays(1)[0];
+            const t = new Date(); t.setHours(0,0,0,0);
+            let days = (5 - t.getDay() + 7) % 7 || 7;
+            const x = new Date(t); x.setDate(x.getDate() + days);
+            nuevaFecha = x.toISOString().split('T')[0];
         }
 
         const r = db.ref('agenda').push();
@@ -787,8 +782,9 @@
         updates['votantes/' + propuestaId] = null;
 
         db.ref().update(updates)
-            .then(() => toast('✓ Nueva semana creada y tema asignado'))
-            .catch(() => toast('Error al crear semana'));
+            .then(() => toast('✓ Nueva semana creada con el tema'))
+            .catch(() => toast('Error al crear semana'))
+            .finally(() => { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Aprobar'; } });
     }
 
     function agregarSemana() {
