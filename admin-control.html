@@ -633,7 +633,7 @@
                                 </select>
                             </td>
                             <td style="text-align:right">
-                                <button class="btn-sm btn-approve" onclick="aprobarTema('${p.firebaseKey}')"><i class="fas fa-check"></i> Aprobar</button>
+                                <button class="btn-sm btn-approve" onclick="aprobarTema(this, '${p.firebaseKey}')"><i class="fas fa-check"></i> Aprobar</button>
                                 <button class="btn-sm btn-delete" onclick="eliminarPropuesta('${p.firebaseKey}')"><i class="fas fa-trash"></i></button>
                             </td>
                         </tr>
@@ -728,11 +728,14 @@
     }
 
     /* ─── Admin Actions ─── */
-    function aprobarTema(propuestaId) {
-        const select = document.getElementById('ap-sel-' + propuestaId);
+    function aprobarTema(btn, propuestaId) {
+        const tr = btn.closest('tr');
+        const select = tr ? tr.querySelector('.semana-select') : null;
         const valor = select ? select.value : '';
         const propuesta = propuestasCache[propuestaId];
+
         if (!propuesta) { toast('Error: propuesta no encontrada'); return; }
+        if (!valor) { toast('Error: no se encontró el selector de semana'); return; }
 
         if (valor === '__NUEVA__') {
             agregarSemanaParaPropuesta(propuestaId);
@@ -741,8 +744,11 @@
 
         const agendaItem = agendaCache[valor];
         if (agendaItem && agendaItem.tema && agendaItem.tema.trim() !== '') {
-            if (!confirm('Esa semana ya tiene tema. ¿Sobrescribir?')) return;
+            if (!confirm('Esa semana ya tiene tema "' + agendaItem.tema + '". ¿Sobrescribir?')) return;
         }
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i>';
 
         const updates = {};
         updates['agenda/' + valor + '/tema'] = propuesta.tema;
@@ -750,8 +756,8 @@
         updates['votantes/' + propuestaId] = null;
 
         db.ref().update(updates)
-            .then(() => toast('✓ Tema aprobado'))
-            .catch(() => toast('Error al aprobar'));
+            .then(() => toast('✓ Tema aprobado en semana ' + (agendaItem ? agendaItem.orden : '?')))
+            .catch(() => { toast('Error al aprobar'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Aprobar'; });
     }
 
     function agregarSemanaParaPropuesta(propuestaId) {
