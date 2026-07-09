@@ -849,17 +849,19 @@
     }
 
     function reordenar(itemKey, direccion) {
+        if (!agendaCache || !Object.keys(agendaCache).length) return;
         const items = Object.entries(agendaCache).map(([k, v]) => ({ fbKey: k, ...v }))
             .sort((a, b) => (a.orden || 0) - (b.orden || 0));
+
         const idx = items.findIndex(i => i.fbKey === itemKey);
-        if (idx === -1) return;
+        if (idx === -1) { toast('Error: semana no encontrada'); return; }
+
         const newIdx = idx + direccion;
         if (newIdx < 0 || newIdx >= items.length) return;
 
-        const temp = items[idx].orden;
         const updates = {};
         updates['agenda/' + items[idx].fbKey + '/orden'] = items[newIdx].orden;
-        updates['agenda/' + items[newIdx].fbKey + '/orden'] = temp;
+        updates['agenda/' + items[newIdx].fbKey + '/orden'] = items[idx].orden;
 
         db.ref().update(updates)
             .then(() => toast('✓ Reordenado'))
