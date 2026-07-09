@@ -91,23 +91,14 @@
             display: block;
         }
 
-        .header-title {
-            font-size: 1.5rem;
-            font-weight: 800;
-            letter-spacing: -0.02em;
-            background: linear-gradient(135deg, var(--red), var(--orange), var(--yellow), var(--green), var(--blue), var(--purple));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
         .header-sub {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: var(--text-light);
-            margin-top: 0.25rem;
-            max-width: 440px;
+            margin-top: 0.15rem;
+            max-width: 380px;
             margin-left: auto;
             margin-right: auto;
+            line-height: 1.4;
         }
 
         /* ─── SECTIONS ─── */
@@ -429,12 +420,13 @@
                 grid-template-columns: 1fr 1fr;
             }
 
-            .header-title {
-                font-size: 1.8rem;
-            }
-
             .header-logo-wrap {
                 max-width: 360px;
+            }
+
+            .header-sub {
+                font-size: 0.95rem;
+                max-width: 420px;
             }
 
             section {
@@ -443,18 +435,14 @@
         }
 
         @media (min-width: 960px) {
-            .header-title {
-                font-size: 2rem;
+            .header-logo-wrap {
+                max-width: 400px;
             }
         }
 
         @media (max-width: 400px) {
             .header-logo-wrap {
                 max-width: 200px;
-            }
-
-            .header-title {
-                font-size: 1.2rem;
             }
 
             .proposer-form {
@@ -484,7 +472,6 @@
         <div class="header-logo-wrap">
             <img src="circulo%20de%20hombres%20diversos.jpeg" alt="Círculo de Hombres Diversos">
         </div>
-        <div class="header-title">Círculo de Hombres</div>
         <div class="header-sub">Propuesta de temas a compartir mediante votación de los miembros</div>
     </div>
 </header>
@@ -534,15 +521,14 @@
 <div class="toast" id="toast"></div>
 
 <script>
-    /* ─── Utilidades ─── */
-    function getSessionId() {
+    const SESSION_ID = (() => {
         let sid = sessionStorage.getItem('ch_sid');
         if (!sid) {
             sid = 's_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 8);
             sessionStorage.setItem('ch_sid', sid);
         }
         return sid;
-    }
+    })();
 
     function toast(msg) {
         const el = document.getElementById('toast');
@@ -552,207 +538,191 @@
         el._t = setTimeout(() => el.classList.remove('show'), 2500);
     }
 
-    function formatFecha(iso) {
-        if (!iso) return '';
+    function fmtFecha(iso) {
+        if (!iso) return { dia: '??', diaSem: '', mes: '' };
         const d = new Date(iso + 'T12:00:00');
-        const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-        const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
         return {
             dia: d.getDate(),
-            diaSem: dias[d.getDay()],
-            mes: meses[d.getMonth()]
+            diaSem: ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][d.getDay()],
+            mes: ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][d.getMonth()]
         };
     }
 
-    function getNextFridays(count) {
-        const fridays = [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const dow = today.getDay();
-        let daysUntil = (5 - dow + 7) % 7;
-        if (daysUntil === 0) daysUntil = 7;
-        for (let i = 0; i < count; i++) {
-            const d = new Date(today);
-            d.setDate(d.getDate() + daysUntil + i * 7);
-            fridays.push(d.toISOString().split('T')[0]);
+    function nextFridays(n) {
+        const r = [];
+        const t = new Date(); t.setHours(0,0,0,0);
+        let d = (5 - t.getDay() + 7) % 7 || 7;
+        for (let i = 0; i < n; i++) {
+            const x = new Date(t); x.setDate(x.getDate() + d + i * 7);
+            r.push(x.toISOString().split('T')[0]);
         }
-        return fridays;
+        return r;
     }
 
-    /* ─── Firebase refs ─── */
-    const agendaRef = db.ref('agenda');
-    const propuestasRef = db.ref('propuestas');
-    const votantesRef = db.ref('votantes');
+    function showError(msg) {
+        document.getElementById('agenda-container').innerHTML =
+            `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--orange)"></i><p>${msg}</p></div>`;
+        document.getElementById('votacion-container').innerHTML =
+            `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--orange)"></i><p>${msg}</p></div>`;
+    }
 
-    const SESSION_ID = getSessionId();
-    let votedSet = new Set();
-    let readyToRender = false;
-    let lastPropuestasData = null;
-
-    /* ─── Cargar votos del usuario ─── */
-    votantesRef.once('value').then(snap => {
-        const data = snap.val();
-        if (data) {
-            Object.keys(data).forEach(pid => {
-                if (data[pid] && data[pid][SESSION_ID]) {
-                    votedSet.add(pid);
-                }
-            });
-        }
-        readyToRender = true;
-        if (lastPropuestasData) renderPropuestas(lastPropuestasData);
-    });
-
-    /* ─── AGENDA ─── */
-    agendaRef.on('value', snap => {
-        const data = snap.val();
-        renderAgenda(data);
-    });
-
-    function renderAgenda(data) {
-        const container = document.getElementById('agenda-container');
-        if (!data) {
-            container.innerHTML = `<div class="empty-state"><i class="fas fa-calendar"></i><p>No hay agenda disponible</p></div>`;
+    /* ─── INICIAR ─── */
+    (function init() {
+        if (typeof firebase === 'undefined' || typeof db === 'undefined') {
+            showError('Firebase no se cargó. Verifica tu conexión o desactiva el bloqueador de anuncios.');
             return;
         }
 
-        const entries = Object.values(data).sort((a, b) => (a.semana || 0) - (b.semana || 0));
-        if (entries.length === 0) {
-            container.innerHTML = `<div class="empty-state"><i class="fas fa-calendar"></i><p>No hay agenda disponible</p></div>`;
-            return;
-        }
+        const connectedRef = db.ref('.info/connected');
+        let fbTimeout = setTimeout(() => {
+            showError('No se puede conectar con Firebase. Revisa tu conexión a internet.');
+        }, 8000);
 
-        container.innerHTML = entries.map(item => {
-            const f = formatFecha(item.fecha);
-            const hasTema = item.tema && item.tema.trim() !== '';
-            return `
-                <div class="agenda-card">
-                    <div class="agenda-date">
-                        <span class="day">${f.dia || '??'}</span>
-                        <span class="month">${f.diaSem || ''} ${f.mes || ''}</span>
-                    </div>
+        connectedRef.on('value', snap => {
+            if (snap.val() === true) {
+                clearTimeout(fbTimeout);
+                iniciarApp();
+            }
+        });
+    })();
+
+    /* ─── APP ─── */
+    function iniciarApp() {
+        const agendaRef = db.ref('agenda');
+        const propuestasRef = db.ref('propuestas');
+        const votantesRef = db.ref('votantes');
+
+        let votedSet = new Set();
+        let ready = false;
+        let lastProps = null;
+        let dataLoaded = false;
+
+        function renderAgenda(data) {
+            const c = document.getElementById('agenda-container');
+            if (!data) {
+                c.innerHTML = `<div class="empty-state"><i class="fas fa-calendar"></i><p>No hay agenda disponible</p></div>`;
+                return;
+            }
+            const items = Object.values(data).sort((a, b) => (a.semana || 0) - (b.semana || 0));
+            if (!items.length) {
+                c.innerHTML = `<div class="empty-state"><i class="fas fa-calendar"></i><p>No hay agenda disponible</p></div>`;
+                return;
+            }
+            c.innerHTML = items.map(item => {
+                const f = fmtFecha(item.fecha);
+                const has = item.tema && item.tema.trim() !== '';
+                return `<div class="agenda-card">
+                    <div class="agenda-date"><span class="day">${f.dia}</span><span class="month">${f.diaSem} ${f.mes}</span></div>
                     <div class="agenda-info">
                         <div class="semana-label">Semana ${item.semana || '—'}</div>
-                        <div class="tema ${hasTema ? '' : 'empty'}">${hasTema ? item.tema : 'Disponible'}</div>
+                        <div class="tema ${has ? '' : 'empty'}">${has ? item.tema : 'Disponible'}</div>
                     </div>
-                    <span class="agenda-badge ${hasTema ? 'confirmed' : 'available'}">
-                        ${hasTema ? 'Confirmado' : 'Abierto'}
-                    </span>
-                </div>
-            `;
-        }).join('');
-    }
-
-    /* ─── INICIALIZAR DATOS SI VACÍO ─── */
-    agendaRef.once('value').then(snap => {
-        if (!snap.val()) {
-            const fridays = getNextFridays(4);
-            const obj = {};
-            fridays.forEach((f, i) => {
-                const key = 'semana-' + (i + 1);
-                obj[key] = { id: key, fecha: f, tema: '', semana: i + 1 };
-            });
-            agendaRef.set(obj);
-        }
-    });
-
-    propuestasRef.once('value').then(snap => {
-        if (!snap.val()) {
-            const temas = ['Desahogo', 'Sexualidad', 'Orgullo'];
-            temas.forEach(t => {
-                const ref = propuestasRef.push();
-                ref.set({ id: ref.key, tema: t, votos: 0 });
-            });
-        }
-    });
-
-    /* ─── PROPUESTAS ─── */
-    propuestasRef.on('value', snap => {
-        lastPropuestasData = snap.val();
-        if (readyToRender) renderPropuestas(lastPropuestasData);
-    });
-
-    function renderPropuestas(data) {
-        const container = document.getElementById('votacion-container');
-        if (!data || Object.keys(data).length === 0) {
-            container.innerHTML = `<div class="empty-state"><i class="fas fa-inbox"></i><p>Aún no hay temas propuestos</p></div>`;
-            return;
+                    <span class="agenda-badge ${has ? 'confirmed' : 'available'}">${has ? 'Confirmado' : 'Abierto'}</span>
+                </div>`;
+            }).join('');
+            dataLoaded = true;
         }
 
-        const items = Object.entries(data).map(([key, val]) => ({
-            firebaseKey: key,
-            ...val
-        })).sort((a, b) => (b.votos || 0) - (a.votos || 0));
-
-        container.innerHTML = items.map(p => {
-            const yaVoto = votedSet.has(p.firebaseKey);
-            return `
-                <div class="voto-item">
+        function renderPropuestas(data) {
+            const c = document.getElementById('votacion-container');
+            if (!data || !Object.keys(data).length) {
+                c.innerHTML = `<div class="empty-state"><i class="fas fa-inbox"></i><p>Aún no hay temas propuestos</p></div>`;
+                return;
+            }
+            const items = Object.entries(data).map(([k, v]) => ({ fbKey: k, ...v }))
+                .sort((a, b) => (b.votos || 0) - (a.votos || 0));
+            c.innerHTML = items.map(p => {
+                const ya = votedSet.has(p.fbKey);
+                return `<div class="voto-item">
                     <span class="voto-tema">${p.tema}</span>
                     <div class="voto-accion">
                         <span class="voto-count"><i class="fas fa-heart"></i> ${p.votos || 0}</span>
-                        <button class="btn-votar ${yaVoto ? 'votado' : ''}"
-                                ${yaVoto ? 'disabled' : ''}
-                                onclick="votar('${p.firebaseKey}', this)"
-                                data-propuesta="${p.firebaseKey}">
-                            ${yaVoto ? '<i class="fas fa-check"></i> Votado' : '<i class="fas fa-thumbs-up"></i> Votar'}
-                        </button>
+                        <button class="btn-votar ${ya ? 'votado' : ''}" ${ya ? 'disabled' : ''}
+                                onclick="votar('${p.fbKey}', this)">${ya ? '<i class="fas fa-check"></i> Votado' : '<i class="fas fa-thumbs-up"></i> Votar'}</button>
                     </div>
-                </div>
-            `;
-        }).join('');
-    }
+                </div>`;
+            }).join('');
+        }
 
-    /* ─── VOTAR ─── */
-    function votar(propuestaId, btn) {
-        if (btn.disabled) return;
-        const voteRef = db.ref('votantes/' + propuestaId + '/' + SESSION_ID);
-
-        voteRef.once('value').then(snap => {
-            if (snap.val()) {
-                toast('Ya votaste este tema');
-                return;
-            }
-
-            btn.disabled = true;
-            btn.classList.add('votado');
-            btn.innerHTML = '<i class="fas fa-check"></i> Votado';
-            votedSet.add(propuestaId);
-
-            db.ref('propuestas/' + propuestaId + '/votos')
-                .transaction(v => (v || 0) + 1);
-
-            return voteRef.set(true);
-        }).catch(() => {
-            toast('Error al votar. Intenta de nuevo.');
+        /* ─── VOTOS DEL USUARIO ─── */
+        votantesRef.once('value').then(snap => {
+            const d = snap.val();
+            if (d) Object.keys(d).forEach(pid => { if (d[pid] && d[pid][SESSION_ID]) votedSet.add(pid); });
+            ready = true;
+            if (lastProps) renderPropuestas(lastProps);
         });
+
+        /* ─── AGENDA ─── */
+        agendaRef.on('value', snap => renderAgenda(snap.val()));
+
+        agendaRef.once('value').then(snap => {
+            if (!snap.val()) {
+                const obj = {};
+                nextFridays(4).forEach((f, i) => { const k = 'semana-' + (i + 1); obj[k] = { id: k, fecha: f, tema: '', semana: i + 1 }; });
+                agendaRef.set(obj);
+            }
+        });
+
+        /* ─── PROPUESTAS ─── */
+        propuestasRef.on('value', snap => {
+            lastProps = snap.val();
+            if (ready) renderPropuestas(lastProps);
+        });
+
+        propuestasRef.once('value').then(snap => {
+            if (!snap.val()) {
+                ['Desahogo', 'Sexualidad', 'Orgullo'].forEach(t => {
+                    const r = propuestasRef.push();
+                    r.set({ id: r.key, tema: t, votos: 0 });
+                });
+            }
+        });
+
+        /* ─── VOTAR ─── */
+        window.votar = function(pid, btn) {
+            if (btn.disabled) return;
+            const vr = db.ref('votantes/' + pid + '/' + SESSION_ID);
+            vr.once('value').then(s => {
+                if (s.val()) { toast('Ya votaste este tema'); return; }
+                btn.disabled = true; btn.classList.add('votado');
+                btn.innerHTML = '<i class="fas fa-check"></i> Votado';
+                votedSet.add(pid);
+                db.ref('propuestas/' + pid + '/votos').transaction(v => (v || 0) + 1);
+                vr.set(true);
+            }).catch(() => toast('Error al votar'));
+        };
+
+        /* ─── PROPOSER ─── */
+        window.proponerTema = function() {
+            const input = document.getElementById('nuevo-tema-input');
+            const btn = document.getElementById('btn-proponer');
+            const txt = input.value.trim();
+            if (!txt) { toast('Escribe un tema'); return; }
+            if (txt.length < 3) { toast('Mínimo 3 letras'); return; }
+            btn.disabled = true;
+            const r = propuestasRef.push();
+            r.set({ id: r.key, tema: txt, votos: 0 })
+                .then(() => { input.value = ''; toast('¡Propuesta agregada!'); })
+                .catch(() => toast('Error al proponer'))
+                .finally(() => { btn.disabled = false; });
+        };
+
+        document.getElementById('nuevo-tema-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter') proponerTema();
+        });
+
+        console.log('🏳️‍🌈 Círculo de Hombres — conectado');
     }
 
-    /* ─── PROPOSER ─── */
-    function proponerTema() {
-        const input = document.getElementById('nuevo-tema-input');
-        const btn = document.getElementById('btn-proponer');
-        const texto = input.value.trim();
-        if (!texto) { toast('Escribe un tema para proponer'); return; }
-        if (texto.length < 3) { toast('El tema debe tener al menos 3 letras'); return; }
-
-        btn.disabled = true;
-        const ref = propuestasRef.push();
-        ref.set({ id: ref.key, tema: texto, votos: 0 })
-            .then(() => {
-                input.value = '';
-                toast('¡Propuesta agregada!');
-            })
-            .catch(() => toast('Error al proponer. Intenta de nuevo.'))
-            .finally(() => { btn.disabled = false; });
-    }
-
-    document.getElementById('nuevo-tema-input').addEventListener('keydown', e => {
-        if (e.key === 'Enter') proponerTema();
-    });
-
-    console.log('🏳️‍🌈 Círculo de Hombres — Gestión de Temas');
-    console.log('🔗 Sesión:', SESSION_ID);
+    /* ─── RETRY si Firebase carga después ─── */
+    setTimeout(() => {
+        if (typeof firebase !== 'undefined' && typeof db !== 'undefined') {
+            const c = document.getElementById('agenda-container');
+            if (c && c.querySelector('.fa-spinner')) {
+                showError('Firebase no responde. Verifica que la base de datos esté activa en console.firebase.google.com');
+            }
+        }
+    }, 12000);
 </script>
 
 </body>

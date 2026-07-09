@@ -526,6 +526,31 @@
     let loaded = 0;
 
     function cargarDatos() {
+        if (typeof firebase === 'undefined' || typeof db === 'undefined') {
+            document.getElementById('propuestas-admin-container').innerHTML =
+                `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--orange)"></i><p>Firebase no se cargó. Verifica conexión o desactiva bloqueador.</p></div>`;
+            document.getElementById('agenda-editor-container').innerHTML =
+                `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--orange)"></i><p>Firebase no se cargó</p></div>`;
+            return;
+        }
+
+        const connectedRef = db.ref('.info/connected');
+        let fbTimeout = setTimeout(() => {
+            document.getElementById('propuestas-admin-container').innerHTML =
+                `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--orange)"></i><p>No hay conexión con Firebase. Revisa internet.</p></div>`;
+            document.getElementById('agenda-editor-container').innerHTML =
+                `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--orange)"></i><p>Sin conexión</p></div>`;
+        }, 8000);
+
+        connectedRef.on('value', snap => {
+            if (snap.val() === true) {
+                clearTimeout(fbTimeout);
+                iniciarListeners();
+            }
+        });
+    }
+
+    function iniciarListeners() {
         db.ref('propuestas').on('value', snap => {
             propuestasCache = snap.val() || {};
             loaded++;
