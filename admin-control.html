@@ -370,6 +370,99 @@
             transform: translateX(-50%) translateY(0);
         }
 
+        /* ─── HELP PANEL ─── */
+        .help-wrap {
+            margin: 1rem 0;
+        }
+
+        .help-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: white;
+            border: 2px solid var(--purple);
+            color: var(--purple);
+            padding: 0.5rem 1.2rem;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition);
+            box-shadow: var(--card-shadow);
+        }
+
+        .help-toggle:hover {
+            background: var(--purple);
+            color: white;
+        }
+
+        .help-toggle i {
+            font-size: 0.9rem;
+            transition: transform 0.3s ease;
+        }
+
+        .help-toggle.active i {
+            transform: rotate(45deg);
+        }
+
+        .help-panel {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--card-shadow);
+            padding: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease, padding 0.4s ease, opacity 0.3s ease;
+            opacity: 0;
+            margin-top: 0.5rem;
+        }
+
+        .help-panel.open {
+            max-height: 800px;
+            padding: 1.5rem;
+            opacity: 1;
+        }
+
+        .help-panel h3 {
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+            color: var(--text);
+        }
+
+        .help-panel ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .help-panel li {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6rem;
+        }
+
+        .help-panel li:last-child {
+            border-bottom: none;
+        }
+
+        .help-panel li i {
+            width: 1.2rem;
+            text-align: center;
+            margin-top: 0.1rem;
+            flex-shrink: 0;
+        }
+
+        .help-panel .help-note {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid #edf2f7;
+        }
+
         /* ─── RESPONSIVE ─── */
         @media (max-width: 640px) {
             .admin-table {
@@ -433,6 +526,26 @@
             <button class="btn-salir" onclick="salir()"><i class="fas fa-sign-out-alt"></i> Salir</button>
         </div>
 
+        <div class="help-wrap">
+            <button class="help-toggle" onclick="toggleHelp(this)">
+                <i class="fas fa-question-circle"></i> Instrucciones
+            </button>
+            <div class="help-panel" id="help-panel-admin">
+                <h3><i class="fas fa-star" style="color:var(--purple)"></i> Instrucciones para el coordinador</h3>
+                <ul>
+                    <li><i class="fas fa-check-circle" style="color:var(--green)"></i> <strong>Aprobar temas:</strong> Presiona "Aprobar" en un tema propuesto. Se asigna automáticamente a la primera semana disponible. Si no hay semanas libres, se crea una nueva.</li>
+                    <li><i class="fas fa-calendar-edit" style="color:var(--blue)"></i> <strong>Editar agenda:</strong> Modifica fecha y tema directamente en los campos de texto. Los cambios se guardan automáticamente.</li>
+                    <li><i class="fas fa-chevron-up" style="color:var(--blue)"></i> <strong>Reordenar:</strong> Usa las flechas arriba/abajo para cambiar el orden de las semanas.</li>
+                    <li><i class="fas fa-archive" style="color:var(--teal)"></i> <strong>Archivar:</strong> Cuando un tema se haya compartido, presiona el ícono de archivo para moverlo al historial.</li>
+                    <li><i class="fas fa-plus" style="color:var(--purple)"></i> <strong>Agregar semana:</strong> Usa el botón "Agregar Semana" para añadir una nueva fecha a la agenda.</li>
+                    <li><i class="fas fa-broom" style="color:var(--orange)"></i> <strong>Limpiar duplicados:</strong> La función "Limpiar Repetidas" detecta propuestas iguales y conserva la que más votos tenga.</li>
+                </ul>
+                <div class="help-note">
+                    <i class="fas fa-info-circle" style="color:var(--blue)"></i> Todos los cambios se sincronizan en tiempo real con Firebase.
+                </div>
+            </div>
+        </div>
+
         <!-- PROPUESTAS -->
         <section>
             <h2 class="section-title"><i class="fas fa-list" style="color:var(--purple)"></i> Temas Propuestos</h2>
@@ -487,6 +600,11 @@
     const PASSWORD = 'Circulo2026';
 
     /* ─── Utilidades ─── */
+    function toggleHelp(btn) {
+        document.getElementById('help-panel-admin').classList.toggle('open');
+        btn.classList.toggle('active');
+    }
+
     function toast(msg) {
         const el = document.getElementById('toast');
         el.textContent = msg;

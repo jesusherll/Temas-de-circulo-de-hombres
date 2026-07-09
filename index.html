@@ -433,6 +433,102 @@
             transform: translateX(-50%) translateY(0);
         }
 
+        /* ─── HELP PANEL ─── */
+        .help-wrap {
+            margin: 1rem auto;
+            max-width: 960px;
+            padding: 0 1rem;
+            width: 100%;
+        }
+
+        .help-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: white;
+            border: 2px solid var(--blue);
+            color: var(--blue);
+            padding: 0.5rem 1.2rem;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition);
+            box-shadow: var(--card-shadow);
+        }
+
+        .help-toggle:hover {
+            background: var(--blue);
+            color: white;
+        }
+
+        .help-toggle i {
+            font-size: 0.9rem;
+            transition: transform 0.3s ease;
+        }
+
+        .help-toggle.active i {
+            transform: rotate(45deg);
+        }
+
+        .help-panel {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--card-shadow);
+            padding: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease, padding 0.4s ease, opacity 0.3s ease;
+            opacity: 0;
+            margin-top: 0.5rem;
+        }
+
+        .help-panel.open {
+            max-height: 600px;
+            padding: 1.5rem;
+            opacity: 1;
+        }
+
+        .help-panel h3 {
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+            color: var(--text);
+        }
+
+        .help-panel ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .help-panel li {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6rem;
+        }
+
+        .help-panel li:last-child {
+            border-bottom: none;
+        }
+
+        .help-panel li i {
+            width: 1.2rem;
+            text-align: center;
+            margin-top: 0.1rem;
+            flex-shrink: 0;
+        }
+
+        .help-panel .help-note {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid #edf2f7;
+        }
+
         /* ─── RESPONSIVE ─── */
             @media (min-width: 640px) {
             .agenda-grid {
@@ -495,6 +591,24 @@
     </div>
 </header>
 
+<div class="help-wrap">
+    <button class="help-toggle" onclick="toggleHelp(this)">
+        <i class="fas fa-question-circle"></i> ¿Cómo funciona?
+    </button>
+    <div class="help-panel" id="help-panel">
+        <h3><i class="fas fa-star" style="color:var(--yellow)"></i> Instrucciones para participantes</h3>
+        <ul>
+            <li><i class="fas fa-calendar-check" style="color:var(--green)"></i> <strong>Agenda:</strong> Las próximas sesiones aparecen en "Agenda Confirmada". Los temas confirmados tienen badge verde.</li>
+            <li><i class="fas fa-thumbs-up" style="color:var(--blue)"></i> <strong>Votar:</strong> Puedes votar una sola vez por tema propuesto. Tu voto se registra al instante.</li>
+            <li><i class="fas fa-lightbulb" style="color:var(--orange)"></i> <strong>Proponer:</strong> Escribe tu sugerencia y presiona "Proponer". La comunidad decidirá con su voto.</li>
+            <li><i class="fas fa-clock-rotate" style="color:var(--text-light)"></i> <strong>Historial:</strong> Temas ya compartidos. Usa "Retomar" para proponer uno de nuevo.</li>
+        </ul>
+        <div class="help-note">
+            <i class="fas fa-shield-alt" style="color:var(--green)"></i> No se almacenan datos personales. No necesitas cuenta ni inicio de sesión.
+        </div>
+    </div>
+</div>
+
 <div class="container">
 
     <!-- AGENDA -->
@@ -513,17 +627,6 @@
         </div>
     </section>
 
-    <!-- HISTORIAL -->
-    <section aria-label="Temas pasados">
-        <h2 class="section-title"><i class="fas fa-clock-rotate" style="color:var(--text-light)"></i> Temas que ya se compartieron</h2>
-        <p style="font-size:0.85rem;color:var(--text-light);margin-bottom:0.75rem;">
-            Temas de sesiones anteriores. Si alguno te interesa, puedes proponerlo de nuevo.
-        </p>
-        <div id="historial-container">
-            <div class="empty-state"><i class="fas fa-spinner fa-pulse"></i><p>Cargando...</p></div>
-        </div>
-    </section>
-
     <!-- PROPOSER -->
     <section aria-label="Proponer tema">
         <h2 class="section-title"><i class="fas fa-lightbulb" style="color:var(--orange)"></i> Proponer un Tema</h2>
@@ -538,6 +641,17 @@
         </div>
         <div class="privacy-notice">
             <i class="fas fa-shield-alt"></i> No se almacenan datos personales ni se requiere inicio de sesión. Toda la información es anónima y se usa únicamente para la gestión de temas del círculo.
+        </div>
+    </section>
+
+    <!-- HISTORIAL -->
+    <section aria-label="Temas pasados">
+        <h2 class="section-title"><i class="fas fa-clock-rotate" style="color:var(--text-light)"></i> Temas que ya se compartieron</h2>
+        <p style="font-size:0.85rem;color:var(--text-light);margin-bottom:0.75rem;">
+            Temas de sesiones anteriores. Si alguno te interesa, puedes proponerlo de nuevo.
+        </p>
+        <div id="historial-container">
+            <div class="empty-state"><i class="fas fa-spinner fa-pulse"></i><p>Cargando...</p></div>
         </div>
     </section>
 
@@ -587,6 +701,11 @@
             r.push(x.toISOString().split('T')[0]);
         }
         return r;
+    }
+
+    function toggleHelp(btn) {
+        document.getElementById('help-panel').classList.toggle('open');
+        btn.classList.toggle('active');
     }
 
     function showError(msg) {
