@@ -70,18 +70,27 @@
 
         .header-inner {
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 1rem;
-            flex-wrap: wrap;
+            gap: 0.25rem;
         }
 
-        .header-logo {
-            width: 64px;
-            height: 64px;
-            border-radius: 50%;
+        .header-logo-wrap {
+            width: 100%;
+            max-width: 280px;
+            margin: 0 auto 0.75rem;
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+            aspect-ratio: 1 / 1;
+        }
+
+        .header-logo-wrap img {
+            width: 100%;
+            height: 100%;
             object-fit: cover;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            display: block;
         }
 
         .header-title {
@@ -95,9 +104,12 @@
         }
 
         .header-sub {
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             color: var(--text-light);
-            margin-top: 0.15rem;
+            margin-top: 0.25rem;
+            max-width: 440px;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         /* ─── SECTIONS ─── */
@@ -414,7 +426,7 @@
         }
 
         /* ─── RESPONSIVE ─── */
-        @media (min-width: 640px) {
+            @media (min-width: 640px) {
             .agenda-grid {
                 grid-template-columns: 1fr 1fr;
             }
@@ -423,9 +435,8 @@
                 font-size: 1.8rem;
             }
 
-            .header-logo {
-                width: 76px;
-                height: 76px;
+            .header-logo-wrap {
+                max-width: 320px;
             }
 
             section {
@@ -440,9 +451,8 @@
         }
 
         @media (max-width: 400px) {
-            .header-logo {
-                width: 52px;
-                height: 52px;
+            .header-logo-wrap {
+                max-width: 200px;
             }
 
             .header-title {
@@ -473,11 +483,11 @@
 
 <header>
     <div class="header-inner">
-        <img src="circulo%20de%20hombres%20diversos.jpeg" alt="Círculo de Hombres" class="header-logo">
-        <div>
-            <div class="header-title">Círculo de Hombres</div>
-            <div class="header-sub">Gestión de Temas · Votación y Agenda</div>
+        <div class="header-logo-wrap">
+            <img src="circulo%20de%20hombres%20diversos.jpeg" alt="Círculo de Hombres Diversos">
         </div>
+        <div class="header-title">Círculo de Hombres</div>
+        <div class="header-sub">Propuesta de temas a compartir mediante votación de los miembros</div>
     </div>
 </header>
 
