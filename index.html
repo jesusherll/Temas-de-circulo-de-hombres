@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Círculo de Hombres — Gestión de Temas</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --cream: #fefcf3;
+            --bg-warm: #f8f4ec;
+            --text: #2d3748;
+            --text-light: #718096;
+            --red: #e53e3e;
+            --orange: #ed8936;
+            --yellow: #d69e2e;
+            --green: #48bb78;
+            --teal: #38b2ac;
+            --blue: #4299e1;
+            --purple: #9f7aea;
+            --pink: #f687b3;
+            --card-shadow: 0 4px 24px rgba(0,0,0,0.07);
+            --radius: 14px;
+            --radius-sm: 10px;
+            --transition: 0.25s ease;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+            background: var(--bg-warm);
+            color: var(--text);
+            line-height: 1.5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 0 1rem;
+            width: 100%;
+        }
+
+        /* ─── HEADER ─── */
+        header {
+            background: var(--cream);
+            padding: 1.5rem 1rem 1rem;
+            text-align: center;
+            position: relative;
+            box-shadow: 0 1px 0 rgba(0,0,0,0.05);
+        }
+
+        header::after {
+            content: '';
+            display: block;
+            height: 4px;
+            margin-top: 1rem;
+            background: linear-gradient(90deg,
+                var(--red), var(--orange), var(--yellow),
+                var(--green), var(--blue), var(--purple));
+            border-radius: 4px;
+            width: 100%;
+        }
+
+        .header-inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .header-logo {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            object-fit: cover;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+        }
+
+        .header-title {
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, var(--red), var(--orange), var(--yellow), var(--green), var(--blue), var(--purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-sub {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            margin-top: 0.15rem;
+        }
+
+        /* ─── SECTIONS ─── */
+        section {
+            margin: 1.5rem 0;
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--card-shadow);
+            padding: 1.5rem;
+        }
+
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-title i {
+            font-size: 1.1rem;
+        }
+
+        /* ─── AGENDA ─── */
+        .agenda-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
+        }
+
+        .agenda-card {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: var(--cream);
+            border-radius: var(--radius-sm);
+            padding: 1rem 1.2rem;
+            border-left: 5px solid var(--yellow);
+            transition: transform var(--transition), box-shadow var(--transition);
+        }
+
+        .agenda-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.07);
+        }
+
+        .agenda-card:nth-child(1) { border-left-color: var(--red); }
+        .agenda-card:nth-child(2) { border-left-color: var(--orange); }
+        .agenda-card:nth-child(3) { border-left-color: var(--yellow); }
+        .agenda-card:nth-child(4) { border-left-color: var(--green); }
+
+        .agenda-date {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 60px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .agenda-date .day {
+            font-size: 1.3rem;
+            line-height: 1.2;
+        }
+
+        .agenda-date .month {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--text-light);
+            letter-spacing: 0.05em;
+        }
+
+        .agenda-info {
+            flex: 1;
+            text-align: left;
+        }
+
+        .agenda-info .semana-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-light);
+            font-weight: 600;
+        }
+
+        .agenda-info .tema {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-top: 0.1rem;
+        }
+
+        .agenda-info .tema.empty {
+            color: var(--text-light);
+            font-style: italic;
+            font-weight: 400;
+        }
+
+        .agenda-badge {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 20px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .agenda-badge.confirmed {
+            background: var(--green);
+            color: white;
+        }
+
+        .agenda-badge.available {
+            background: var(--cream);
+            color: var(--text-light);
+            border: 1px dashed var(--text-light);
+        }
+
+        /* ─── VOTACIÓN ─── */
+        .votacion-lista {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .voto-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.8rem 1rem;
+            background: var(--cream);
+            border-radius: var(--radius-sm);
+            border-left: 4px solid var(--purple);
+            transition: transform var(--transition);
+        }
+
+        .voto-item:hover {
+            transform: translateX(3px);
+        }
+
+        .voto-item .voto-tema {
+            flex: 1;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .voto-item .voto-accion {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .voto-count {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            font-weight: 600;
+            min-width: 3rem;
+            text-align: right;
+        }
+
+        .voto-count i {
+            margin-right: 0.2rem;
+            color: var(--orange);
+        }
+
+        .btn-votar {
+            background: linear-gradient(135deg, var(--blue), var(--purple));
+            color: white;
+            border: none;
+            padding: 0.45rem 1rem;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            white-space: nowrap;
+        }
+
+        .btn-votar:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 3px 14px rgba(66,153,225,0.35);
+        }
+
+        .btn-votar:disabled,
+        .btn-votar.votado {
+            background: var(--green);
+            cursor: default;
+            opacity: 0.85;
+        }
+
+        .btn-votar.votado i {
+            color: white;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 2rem 1rem;
+            color: var(--text-light);
+        }
+
+        .empty-state i {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            opacity: 0.4;
+        }
+
+        .empty-state p {
+            font-size: 0.9rem;
+        }
+
+        /* ─── PROPOSER ─── */
+        .proposer-form {
+            display: flex;
+            gap: 0.6rem;
+            margin-top: 0.5rem;
+        }
+
+        .proposer-form input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: var(--radius-sm);
+            font-size: 0.95rem;
+            outline: none;
+            transition: border var(--transition);
+        }
+
+        .proposer-form input:focus {
+            border-color: var(--purple);
+        }
+
+        .btn-proponer {
+            background: linear-gradient(135deg, var(--orange), var(--red));
+            color: white;
+            border: none;
+            padding: 0.75rem 1.4rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all var(--transition);
+            white-space: nowrap;
+        }
+
+        .btn-proponer:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(237,137,54,0.35);
+        }
+
+        .btn-proponer:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ─── FOOTER ─── */
+        footer {
+            margin-top: auto;
+            background: linear-gradient(90deg,
+                var(--red), var(--orange), var(--yellow),
+                var(--green), var(--blue), var(--purple));
+            color: white;
+            text-align: center;
+            padding: 1.5rem 1rem;
+            font-size: 0.85rem;
+        }
+
+        footer small {
+            opacity: 0.85;
+        }
+
+        /* ─── TOAST ─── */
+        .toast {
+            position: fixed;
+            bottom: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: var(--text);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: all 0.4s ease;
+            z-index: 999;
+            pointer-events: none;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* ─── RESPONSIVE ─── */
+        @media (min-width: 640px) {
+            .agenda-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .header-title {
+                font-size: 1.8rem;
+            }
+
+            .header-logo {
+                width: 76px;
+                height: 76px;
+            }
+
+            section {
+                padding: 1.8rem 2rem;
+            }
+        }
+
+        @media (min-width: 960px) {
+            .header-title {
+                font-size: 2rem;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .header-logo {
+                width: 52px;
+                height: 52px;
+            }
+
+            .header-title {
+                font-size: 1.2rem;
+            }
+
+            .proposer-form {
+                flex-direction: column;
+            }
+
+            .btn-proponer {
+                width: 100%;
+                text-align: center;
+            }
+
+            .voto-item {
+                flex-wrap: wrap;
+            }
+
+            .voto-item .voto-accion {
+                width: 100%;
+                justify-content: flex-end;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-inner">
+        <img src="circulo%20de%20hombres%20diversos.jpeg" alt="Círculo de Hombres" class="header-logo">
+        <div>
+            <div class="header-title">Círculo de Hombres</div>
+            <div class="header-sub">Gestión de Temas · Votación y Agenda</div>
+        </div>
+    </div>
+</header>
+
+<div class="container">
+
+    <!-- AGENDA -->
+    <section aria-label="Agenda confirmada">
+        <h2 class="section-title"><i class="fas fa-calendar-check" style="color:var(--green)"></i> Agenda Confirmada</h2>
+        <div class="agenda-grid" id="agenda-container">
+            <div class="empty-state"><i class="fas fa-spinner fa-pulse"></i><p>Cargando agenda...</p></div>
+        </div>
+    </section>
+
+    <!-- VOTACIÓN -->
+    <section aria-label="Votación activa">
+        <h2 class="section-title"><i class="fas fa-thumbs-up" style="color:var(--blue)"></i> Votación Activa</h2>
+        <div class="votacion-lista" id="votacion-container">
+            <div class="empty-state"><i class="fas fa-spinner fa-pulse"></i><p>Cargando propuestas...</p></div>
+        </div>
+    </section>
+
+    <!-- PROPOSER -->
+    <section aria-label="Proponer tema">
+        <h2 class="section-title"><i class="fas fa-lightbulb" style="color:var(--orange)"></i> Proponer un Tema</h2>
+        <p style="font-size:0.85rem;color:var(--text-light);margin-bottom:0.5rem;">
+            ¿Qué tema te gustaría tratar en el círculo? Proponlo y la comunidad votará.
+        </p>
+        <div class="proposer-form">
+            <input type="text" id="nuevo-tema-input" placeholder="Escribe tu propuesta..." maxlength="120" autocomplete="off">
+            <button class="btn-proponer" id="btn-proponer" onclick="proponerTema()">
+                <i class="fas fa-plus"></i> Proponer
+            </button>
+        </div>
+    </section>
+
+</div>
+
+<footer>
+    <strong>Círculo de Hombres</strong> &mdash; Espacio seguro de diálogo y crecimiento<br>
+    <small>Los datos se sincronizan en tiempo real vía Firebase</small>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    /* ─── Utilidades ─── */
+    function getSessionId() {
+        let sid = sessionStorage.getItem('ch_sid');
+        if (!sid) {
+            sid = 's_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 8);
+            sessionStorage.setItem('ch_sid', sid);
+        }
+        return sid;
+    }
+
+    function toast(msg) {
+        const el = document.getElementById('toast');
+        el.textContent = msg;
+        el.classList.add('show');
+        clearTimeout(el._t);
+        el._t = setTimeout(() => el.classList.remove('show'), 2500);
+    }
+
+    function formatFecha(iso) {
+        if (!iso) return '';
+        const d = new Date(iso + 'T12:00:00');
+        const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+        const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        return {
+            dia: d.getDate(),
+            diaSem: dias[d.getDay()],
+            mes: meses[d.getMonth()]
+        };
+    }
+
+    function getNextFridays(count) {
+        const fridays = [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const dow = today.getDay();
+        let daysUntil = (5 - dow + 7) % 7;
+        if (daysUntil === 0) daysUntil = 7;
+        for (let i = 0; i < count; i++) {
+            const d = new Date(today);
+            d.setDate(d.getDate() + daysUntil + i * 7);
+            fridays.push(d.toISOString().split('T')[0]);
+        }
+        return fridays;
+    }
+
+    /* ─── Firebase refs ─── */
+    const agendaRef = db.ref('agenda');
+    const propuestasRef = db.ref('propuestas');
+    const votantesRef = db.ref('votantes');
+
+    const SESSION_ID = getSessionId();
+    let votedSet = new Set();
+    let readyToRender = false;
+    let lastPropuestasData = null;
+
+    /* ─── Cargar votos del usuario ─── */
+    votantesRef.once('value').then(snap => {
+        const data = snap.val();
+        if (data) {
+            Object.keys(data).forEach(pid => {
+                if (data[pid] && data[pid][SESSION_ID]) {
+                    votedSet.add(pid);
+                }
+            });
+        }
+        readyToRender = true;
+        if (lastPropuestasData) renderPropuestas(lastPropuestasData);
+    });
+
+    /* ─── AGENDA ─── */
+    agendaRef.on('value', snap => {
+        const data = snap.val();
+        renderAgenda(data);
+    });
+
+    function renderAgenda(data) {
+        const container = document.getElementById('agenda-container');
+        if (!data) {
+            container.innerHTML = `<div class="empty-state"><i class="fas fa-calendar"></i><p>No hay agenda disponible</p></div>`;
+            return;
+        }
+
+        const entries = Object.values(data).sort((a, b) => (a.semana || 0) - (b.semana || 0));
+        if (entries.length === 0) {
+            container.innerHTML = `<div class="empty-state"><i class="fas fa-calendar"></i><p>No hay agenda disponible</p></div>`;
+            return;
+        }
+
+        container.innerHTML = entries.map(item => {
+            const f = formatFecha(item.fecha);
+            const hasTema = item.tema && item.tema.trim() !== '';
+            return `
+                <div class="agenda-card">
+                    <div class="agenda-date">
+                        <span class="day">${f.dia || '??'}</span>
+                        <span class="month">${f.diaSem || ''} ${f.mes || ''}</span>
+                    </div>
+                    <div class="agenda-info">
+                        <div class="semana-label">Semana ${item.semana || '—'}</div>
+                        <div class="tema ${hasTema ? '' : 'empty'}">${hasTema ? item.tema : 'Disponible'}</div>
+                    </div>
+                    <span class="agenda-badge ${hasTema ? 'confirmed' : 'available'}">
+                        ${hasTema ? 'Confirmado' : 'Abierto'}
+                    </span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    /* ─── INICIALIZAR DATOS SI VACÍO ─── */
+    agendaRef.once('value').then(snap => {
+        if (!snap.val()) {
+            const fridays = getNextFridays(4);
+            const obj = {};
+            fridays.forEach((f, i) => {
+                const key = 'semana-' + (i + 1);
+                obj[key] = { id: key, fecha: f, tema: '', semana: i + 1 };
+            });
+            agendaRef.set(obj);
+        }
+    });
+
+    propuestasRef.once('value').then(snap => {
+        if (!snap.val()) {
+            const temas = ['Desahogo', 'Sexualidad', 'Orgullo'];
+            temas.forEach(t => {
+                const ref = propuestasRef.push();
+                ref.set({ id: ref.key, tema: t, votos: 0 });
+            });
+        }
+    });
+
+    /* ─── PROPUESTAS ─── */
+    propuestasRef.on('value', snap => {
+        lastPropuestasData = snap.val();
+        if (readyToRender) renderPropuestas(lastPropuestasData);
+    });
+
+    function renderPropuestas(data) {
+        const container = document.getElementById('votacion-container');
+        if (!data || Object.keys(data).length === 0) {
+            container.innerHTML = `<div class="empty-state"><i class="fas fa-inbox"></i><p>Aún no hay temas propuestos</p></div>`;
+            return;
+        }
+
+        const items = Object.entries(data).map(([key, val]) => ({
+            firebaseKey: key,
+            ...val
+        })).sort((a, b) => (b.votos || 0) - (a.votos || 0));
+
+        container.innerHTML = items.map(p => {
+            const yaVoto = votedSet.has(p.firebaseKey);
+            return `
+                <div class="voto-item">
+                    <span class="voto-tema">${p.tema}</span>
+                    <div class="voto-accion">
+                        <span class="voto-count"><i class="fas fa-heart"></i> ${p.votos || 0}</span>
+                        <button class="btn-votar ${yaVoto ? 'votado' : ''}"
+                                ${yaVoto ? 'disabled' : ''}
+                                onclick="votar('${p.firebaseKey}', this)"
+                                data-propuesta="${p.firebaseKey}">
+                            ${yaVoto ? '<i class="fas fa-check"></i> Votado' : '<i class="fas fa-thumbs-up"></i> Votar'}
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    /* ─── VOTAR ─── */
+    function votar(propuestaId, btn) {
+        if (btn.disabled) return;
+        const voteRef = db.ref('votantes/' + propuestaId + '/' + SESSION_ID);
+
+        voteRef.once('value').then(snap => {
+            if (snap.val()) {
+                toast('Ya votaste este tema');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.classList.add('votado');
+            btn.innerHTML = '<i class="fas fa-check"></i> Votado';
+            votedSet.add(propuestaId);
+
+            db.ref('propuestas/' + propuestaId + '/votos')
+                .transaction(v => (v || 0) + 1);
+
+            return voteRef.set(true);
+        }).catch(() => {
+            toast('Error al votar. Intenta de nuevo.');
+        });
+    }
+
+    /* ─── PROPOSER ─── */
+    function proponerTema() {
+        const input = document.getElementById('nuevo-tema-input');
+        const btn = document.getElementById('btn-proponer');
+        const texto = input.value.trim();
+        if (!texto) { toast('Escribe un tema para proponer'); return; }
+        if (texto.length < 3) { toast('El tema debe tener al menos 3 letras'); return; }
+
+        btn.disabled = true;
+        const ref = propuestasRef.push();
+        ref.set({ id: ref.key, tema: texto, votos: 0 })
+            .then(() => {
+                input.value = '';
+                toast('¡Propuesta agregada!');
+            })
+            .catch(() => toast('Error al proponer. Intenta de nuevo.'))
+            .finally(() => { btn.disabled = false; });
+    }
+
+    document.getElementById('nuevo-tema-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') proponerTema();
+    });
+
+    console.log('🏳️‍🌈 Círculo de Hombres — Gestión de Temas');
+    console.log('🔗 Sesión:', SESSION_ID);
+</script>
+
+</body>
+</html>

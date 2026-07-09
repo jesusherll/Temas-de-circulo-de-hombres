@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin — Círculo de Hombres</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --cream: #fefcf3;
+            --bg-warm: #f8f4ec;
+            --text: #2d3748;
+            --text-light: #718096;
+            --red: #e53e3e;
+            --orange: #ed8936;
+            --yellow: #d69e2e;
+            --green: #48bb78;
+            --blue: #4299e1;
+            --purple: #9f7aea;
+            --card-shadow: 0 4px 24px rgba(0,0,0,0.07);
+            --radius: 14px;
+            --radius-sm: 10px;
+            --transition: 0.25s ease;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+            background: var(--bg-warm);
+            color: var(--text);
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 0 1rem 2rem;
+            width: 100%;
+        }
+
+        /* ─── PASSWORD OVERLAY ─── */
+        #password-overlay {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, var(--cream), var(--bg-warm));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 1rem;
+        }
+
+        .password-box {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: 0 8px 40px rgba(0,0,0,0.12);
+            padding: 2.5rem 2rem;
+            max-width: 380px;
+            width: 100%;
+            text-align: center;
+            border-top: 5px solid var(--purple);
+        }
+
+        .password-box .lock-icon {
+            font-size: 2.5rem;
+            color: var(--purple);
+            margin-bottom: 0.75rem;
+        }
+
+        .password-box h2 {
+            font-size: 1.3rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .password-box p {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            margin-bottom: 1.5rem;
+        }
+
+        .password-box input {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+            text-align: center;
+            outline: none;
+            transition: border var(--transition);
+            letter-spacing: 0.15em;
+        }
+
+        .password-box input:focus {
+            border-color: var(--purple);
+        }
+
+        .password-box .btn-acceder {
+            width: 100%;
+            margin-top: 1rem;
+            padding: 0.8rem;
+            background: linear-gradient(135deg, var(--purple), var(--blue));
+            color: white;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+
+        .password-box .btn-acceder:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(159,122,234,0.35);
+        }
+
+        .password-box .error-msg {
+            color: var(--red);
+            font-size: 0.8rem;
+            margin-top: 0.75rem;
+            display: none;
+        }
+
+        /* ─── ADMIN PANEL ─── */
+        #admin-panel {
+            display: none;
+        }
+
+        .admin-bar {
+            background: white;
+            padding: 1rem 1.5rem;
+            border-radius: var(--radius);
+            box-shadow: var(--card-shadow);
+            margin: 1rem 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .admin-bar .badge {
+            background: linear-gradient(135deg, var(--purple), var(--blue));
+            color: white;
+            padding: 0.3rem 1rem;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .admin-bar .admin-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .admin-bar .btn-salir {
+            background: none;
+            border: 2px solid var(--red);
+            color: var(--red);
+            padding: 0.4rem 1rem;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+
+        .admin-bar .btn-salir:hover {
+            background: var(--red);
+            color: white;
+        }
+
+        section {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--card-shadow);
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* ─── TABLAS ADMIN ─── */
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .admin-table th {
+            text-align: left;
+            padding: 0.6rem 0.5rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-light);
+            border-bottom: 2px solid #edf2f7;
+        }
+
+        .admin-table td {
+            padding: 0.7rem 0.5rem;
+            border-bottom: 1px solid #edf2f7;
+            vertical-align: middle;
+        }
+
+        .admin-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .admin-table .num-votos {
+            font-weight: 700;
+            color: var(--orange);
+        }
+
+        /* ─── BOTONES ADMIN ─── */
+        .btn-sm {
+            padding: 0.35rem 0.75rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition);
+            white-space: nowrap;
+        }
+
+        .btn-sm i {
+            margin-right: 0.2rem;
+        }
+
+        .btn-approve {
+            background: var(--green);
+            color: white;
+        }
+
+        .btn-approve:hover {
+            background: #38a169;
+        }
+
+        .btn-delete {
+            background: #fed7d7;
+            color: var(--red);
+        }
+
+        .btn-delete:hover {
+            background: var(--red);
+            color: white;
+        }
+
+        .btn-edit {
+            background: var(--blue);
+            color: white;
+        }
+
+        .btn-edit:hover {
+            background: #3182ce;
+        }
+
+        .btn-clean {
+            background: linear-gradient(135deg, var(--orange), var(--red));
+            color: white;
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+
+        .btn-clean:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(237,137,54,0.3);
+        }
+
+        .btn-clean:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .semana-select {
+            padding: 0.3rem 0.5rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            background: white;
+        }
+
+        .agenda-edit-input {
+            width: 100%;
+            padding: 0.4rem 0.5rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            transition: border var(--transition);
+        }
+
+        .agenda-edit-input:focus {
+            border-color: var(--blue);
+            outline: none;
+        }
+
+        .agenda-edit-date {
+            padding: 0.4rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 0.8rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 1.5rem;
+            color: var(--text-light);
+        }
+
+        .empty-state i {
+            font-size: 1.5rem;
+            opacity: 0.4;
+            margin-bottom: 0.3rem;
+        }
+
+        /* ─── FOOTER ─── */
+        footer {
+            background: linear-gradient(90deg,
+                var(--red), var(--orange), var(--yellow),
+                var(--green), var(--blue), var(--purple));
+            color: white;
+            text-align: center;
+            padding: 1.2rem 1rem;
+            font-size: 0.8rem;
+            margin-top: 2rem;
+        }
+
+        /* ─── TOAST ─── */
+        .toast {
+            position: fixed;
+            bottom: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: var(--text);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: all 0.4s ease;
+            z-index: 999;
+            pointer-events: none;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* ─── RESPONSIVE ─── */
+        @media (max-width: 640px) {
+            .admin-table {
+                font-size: 0.8rem;
+            }
+
+            .admin-table td,
+            .admin-table th {
+                padding: 0.5rem 0.3rem;
+            }
+
+            .password-box {
+                padding: 2rem 1.2rem;
+            }
+
+            section {
+                padding: 1rem;
+            }
+
+            .admin-bar {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .semana-select {
+                font-size: 0.7rem;
+                padding: 0.2rem 0.3rem;
+            }
+
+            .btn-sm {
+                font-size: 0.7rem;
+                padding: 0.25rem 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- PASSWORD OVERLAY -->
+<div id="password-overlay">
+    <div class="password-box">
+        <div class="lock-icon"><i class="fas fa-lock"></i></div>
+        <h2>Acceso Restringido</h2>
+        <p>Ingresa la contraseña de coordinador</p>
+        <input type="password" id="pwd-input" placeholder="Contraseña" autocomplete="off">
+        <button class="btn-acceder" onclick="checkPassword()"><i class="fas fa-arrow-right"></i> Acceder</button>
+        <div class="error-msg" id="pwd-error">Contraseña incorrecta</div>
+    </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="admin-panel">
+
+    <div class="container">
+
+        <div class="admin-bar">
+            <div>
+                <span class="badge"><i class="fas fa-shield-halved"></i> Admin</span>
+                <span class="admin-title">Panel de Control</span>
+            </div>
+            <button class="btn-salir" onclick="salir()"><i class="fas fa-sign-out-alt"></i> Salir</button>
+        </div>
+
+        <!-- PROPUESTAS -->
+        <section>
+            <h2 class="section-title"><i class="fas fa-list" style="color:var(--purple)"></i> Temas Propuestos</h2>
+            <div id="propuestas-admin-container">
+                <div class="empty-state"><i class="fas fa-spinner fa-pulse"></i><p>Cargando...</p></div>
+            </div>
+        </section>
+
+        <!-- AGENDA EDITOR -->
+        <section>
+            <h2 class="section-title"><i class="fas fa-calendar-edit" style="color:var(--blue)"></i> Editor de Agenda</h2>
+            <div id="agenda-editor-container">
+                <div class="empty-state"><i class="fas fa-spinner fa-pulse"></i><p>Cargando...</p></div>
+            </div>
+        </section>
+
+        <!-- LIMPIAR -->
+        <section>
+            <h2 class="section-title"><i class="fas fa-broom" style="color:var(--orange)"></i> Mantenimiento</h2>
+            <p style="font-size:0.85rem;color:var(--text-light);margin-bottom:0.75rem;">
+                Detecta y elimina propuestas duplicadas (conserva la que más votos tenga).
+            </p>
+            <button class="btn-clean" id="btn-limpiar" onclick="limpiarRepetidas()">
+                <i class="fas fa-broom"></i> Limpiar Repetidas
+            </button>
+        </section>
+
+    </div>
+
+    <footer>
+        <strong>Círculo de Hombres</strong> &mdash; Panel de Administración
+    </footer>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    const PASSWORD = 'Circulo2026';
+
+    /* ─── Utilidades ─── */
+    function toast(msg) {
+        const el = document.getElementById('toast');
+        el.textContent = msg;
+        el.classList.add('show');
+        clearTimeout(el._t);
+        el._t = setTimeout(() => el.classList.remove('show'), 2500);
+    }
+
+    function formatFecha(iso) {
+        if (!iso) return '';
+        const d = new Date(iso + 'T12:00:00');
+        const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+        const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        return d.getDate() + ' ' + meses[d.getMonth()] + ' (' + dias[d.getDay()] + ')';
+    }
+
+    /* ─── Password ─── */
+    function checkPassword() {
+        const pwd = document.getElementById('pwd-input').value;
+        if (pwd === PASSWORD) {
+            document.getElementById('password-overlay').style.display = 'none';
+            document.getElementById('admin-panel').style.display = 'block';
+            sessionStorage.setItem('ch_admin', '1');
+            document.getElementById('pwd-error').style.display = 'none';
+            cargarDatos();
+        } else {
+            document.getElementById('pwd-error').style.display = 'block';
+            document.getElementById('pwd-input').value = '';
+            document.getElementById('pwd-input').focus();
+        }
+    }
+
+    function salir() {
+        sessionStorage.removeItem('ch_admin');
+        window.location.href = 'index.html';
+    }
+
+    document.getElementById('pwd-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') checkPassword();
+    });
+
+    /* ─── Auto-login si ya validó ─── */
+    if (sessionStorage.getItem('ch_admin') === '1') {
+        document.getElementById('password-overlay').style.display = 'none';
+        document.getElementById('admin-panel').style.display = 'block';
+    }
+
+    /* ─── Firebase ─── */
+    let propuestasCache = {};
+    let agendaCache = {};
+    let loaded = 0;
+
+    function cargarDatos() {
+        db.ref('propuestas').on('value', snap => {
+            propuestasCache = snap.val() || {};
+            loaded++;
+            if (loaded >= 2) renderTodo();
+            else if (loaded === 1) renderPropuestasAdmin();
+        });
+
+        db.ref('agenda').on('value', snap => {
+            agendaCache = snap.val() || {};
+            loaded++;
+            if (loaded >= 2) renderTodo();
+            else if (loaded === 1) renderAgendaEditor();
+        });
+    }
+
+    function renderTodo() {
+        renderPropuestasAdmin();
+        renderAgendaEditor();
+    }
+
+    /* ─── Render Propuestas Admin ─── */
+    function renderPropuestasAdmin() {
+        const container = document.getElementById('propuestas-admin-container');
+        const items = Object.entries(propuestasCache).map(([key, val]) => ({
+            firebaseKey: key,
+            ...val
+        })).sort((a, b) => (b.votos || 0) - (a.votos || 0));
+
+        if (items.length === 0) {
+            container.innerHTML = `<div class="empty-state"><i class="fas fa-inbox"></i><p>No hay propuestas</p></div>`;
+            return;
+        }
+
+        container.innerHTML = `
+            <table class="admin-table">
+                <thead><tr>
+                    <th>Tema</th>
+                    <th style="width:70px;text-align:center">Votos</th>
+                    <th style="width:220px;text-align:center">Semana</th>
+                    <th style="width:140px;text-align:right">Acción</th>
+                </tr></thead>
+                <tbody>
+                    ${items.map(p => `
+                        <tr>
+                            <td><strong>${p.tema}</strong></td>
+                            <td style="text-align:center"><span class="num-votos"><i class="fas fa-heart"></i> ${p.votos || 0}</span></td>
+                            <td style="text-align:center">
+                                <select class="semana-select" id="ap-sel-${p.firebaseKey}">
+                                    ${['semana-1','semana-2','semana-3','semana-4'].map((sk, i) => {
+                                        const agendaItem = agendaCache[sk];
+                                        const ocupado = agendaItem && agendaItem.tema && agendaItem.tema.trim() !== '';
+                                        const label = ocupado ? `Semana ${i+1} (${agendaItem.tema})` : `Semana ${i+1} (Disponible)`;
+                                        return `<option value="${sk}">${label}</option>`;
+                                    }).join('')}
+                                </select>
+                            </td>
+                            <td style="text-align:right">
+                                <button class="btn-sm btn-approve" onclick="aprobarTema('${p.firebaseKey}')"><i class="fas fa-check"></i> Aprobar</button>
+                                <button class="btn-sm btn-delete" onclick="eliminarPropuesta('${p.firebaseKey}')"><i class="fas fa-trash"></i></button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+
+    /* ─── Render Agenda Editor ─── */
+    function renderAgendaEditor() {
+        const container = document.getElementById('agenda-editor-container');
+        const entries = Object.entries(agendaCache)
+            .sort(([,a], [,b]) => (a.semana || 0) - (b.semana || 0));
+
+        if (entries.length === 0) {
+            container.innerHTML = `<div class="empty-state"><i class="fas fa-calendar"></i><p>No hay agenda</p></div>`;
+            return;
+        }
+
+        container.innerHTML = `
+            <table class="admin-table">
+                <thead><tr>
+                    <th style="width:80px">Semana</th>
+                    <th>Fecha</th>
+                    <th>Tema</th>
+                    <th style="width:60px;text-align:center">Ord</th>
+                </tr></thead>
+                <tbody>
+                    ${entries.map(([key, item]) => `
+                        <tr>
+                            <td><strong>${item.semana || '—'}</strong></td>
+                            <td>
+                                <input type="date" class="agenda-edit-date" id="date-${key}"
+                                       value="${item.fecha || ''}"
+                                       onchange="editarAgenda('${key}', 'fecha', this.value)">
+                            </td>
+                            <td>
+                                <input type="text" class="agenda-edit-input" id="tema-${key}"
+                                       value="${item.tema || ''}" placeholder="Disponible"
+                                       onchange="editarAgenda('${key}', 'tema', this.value)">
+                            </td>
+                            <td style="text-align:center">
+                                <button class="btn-sm btn-edit" onclick="reordenar('${key}', -1)" title="Subir"><i class="fas fa-chevron-up"></i></button>
+                                <button class="btn-sm btn-edit" onclick="reordenar('${key}', 1)" title="Bajar"><i class="fas fa-chevron-down"></i></button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            <p style="font-size:0.75rem;color:var(--text-light);margin-top:0.5rem;">
+                <i class="fas fa-info-circle"></i> Edita los campos directamente y se guardan automáticamente.
+            </p>
+        `;
+    }
+
+    /* ─── Admin Actions ─── */
+    function aprobarTema(propuestaId) {
+        const select = document.getElementById('ap-sel-' + propuestaId);
+        const semanaKey = select ? select.value : 'semana-1';
+        const propuesta = propuestasCache[propuestaId];
+        if (!propuesta) { toast('Error: propuesta no encontrada'); return; }
+
+        const agendaItem = agendaCache[semanaKey];
+        if (agendaItem && agendaItem.tema && agendaItem.tema.trim() !== '') {
+            if (!confirm('La semana ' + semanaKey.replace('semana-', '') + ' ya tiene tema. ¿Sobrescribir?')) return;
+        }
+
+        const updates = {};
+        updates['agenda/' + semanaKey + '/tema'] = propuesta.tema;
+        updates['propuestas/' + propuestaId] = null;
+        updates['votantes/' + propuestaId] = null;
+
+        db.ref().update(updates)
+            .then(() => toast('✓ Tema aprobado en ' + semanaKey.replace('semana-', 'Semana ')))
+            .catch(() => toast('Error al aprobar'));
+    }
+
+    function eliminarPropuesta(propuestaId) {
+        if (!confirm('¿Eliminar esta propuesta?')) return;
+        const updates = {};
+        updates['propuestas/' + propuestaId] = null;
+        updates['votantes/' + propuestaId] = null;
+        db.ref().update(updates)
+            .then(() => toast('Propuesta eliminada'))
+            .catch(() => toast('Error al eliminar'));
+    }
+
+    function editarAgenda(semanaKey, campo, valor) {
+        const ref = db.ref('agenda/' + semanaKey + '/' + campo);
+        ref.set(valor)
+            .then(() => toast('✓ Actualizado'))
+            .catch(() => toast('Error al actualizar'));
+    }
+
+    function reordenar(semanaKey, direccion) {
+        const entries = Object.entries(agendaCache)
+            .sort(([,a], [,b]) => (a.semana || 0) - (b.semana || 0));
+        const idx = entries.findIndex(([k]) => k === semanaKey);
+        if (idx === -1) return;
+        const newIdx = idx + direccion;
+        if (newIdx < 0 || newIdx >= entries.length) return;
+
+        const current = entries[idx][1];
+        const neighbor = entries[newIdx][1];
+        const tempSemana = current.semana;
+
+        const updates = {};
+        updates['agenda/' + entries[idx][0] + '/semana'] = neighbor.semana;
+        updates['agenda/' + entries[newIdx][0] + '/semana'] = tempSemana;
+
+        db.ref().update(updates)
+            .then(() => toast('✓ Reordenado'))
+            .catch(() => toast('Error al reordenar'));
+    }
+
+    /* ─── Limpiar Repetidas ─── */
+    function limpiarRepetidas() {
+        const btn = document.getElementById('btn-limpiar');
+        btn.disabled = true;
+
+        const items = Object.entries(propuestasCache).map(([key, val]) => ({
+            firebaseKey: key,
+            ...val
+        }));
+
+        const grupos = {};
+        items.forEach(p => {
+            const normalizado = p.tema.trim().toLowerCase();
+            if (!grupos[normalizado]) grupos[normalizado] = [];
+            grupos[normalizado].push(p);
+        });
+
+        const updates = {};
+        let eliminadas = 0;
+
+        Object.values(grupos).forEach(grupo => {
+            if (grupo.length > 1) {
+                grupo.sort((a, b) => (b.votos || 0) - (a.votos || 0));
+                const keep = grupo[0];
+                grupo.slice(1).forEach(p => {
+                    updates['propuestas/' + p.firebaseKey] = null;
+                    updates['votantes/' + p.firebaseKey] = null;
+                    eliminadas++;
+                });
+            }
+        });
+
+        if (eliminadas === 0) {
+            toast('No se encontraron duplicados');
+            btn.disabled = false;
+            return;
+        }
+
+        db.ref().update(updates)
+            .then(() => {
+                toast('✓ ' + eliminadas + ' propuesta(s) duplicada(s) eliminada(s)');
+            })
+            .catch(() => toast('Error al limpiar'))
+            .finally(() => { btn.disabled = false; });
+    }
+
+    console.log('🔐 Admin Panel — Círculo de Hombres');
+</script>
+
+</body>
+</html>
