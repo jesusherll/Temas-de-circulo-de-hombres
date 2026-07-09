@@ -22,6 +22,7 @@
             --green: #48bb78;
             --blue: #4299e1;
             --purple: #9f7aea;
+            --teal: #38b2ac;
             --card-shadow: 0 4px 24px rgba(0,0,0,0.07);
             --radius: 14px;
             --radius-sm: 10px;
@@ -446,6 +447,19 @@
             <div id="agenda-editor-container">
                 <div class="empty-state"><i class="fas fa-spinner fa-pulse"></i><p>Cargando...</p></div>
             </div>
+            <div style="margin-top:0.75rem;text-align:center">
+                <button class="btn-clean" onclick="agregarSemana()" style="background:linear-gradient(135deg,var(--blue),var(--purple))">
+                    <i class="fas fa-plus"></i> Agregar Semana
+                </button>
+            </div>
+        </section>
+
+        <!-- HISTORIAL ADMIN -->
+        <section>
+            <h2 class="section-title"><i class="fas fa-clock" style="color:var(--text-light)"></i> Temas Archivados</h2>
+            <div id="historial-admin-container">
+                <div class="empty-state"><i class="fas fa-spinner fa-pulse"></i><p>Cargando...</p></div>
+            </div>
         </section>
 
         <!-- LIMPIAR -->
@@ -518,28 +532,30 @@
     if (sessionStorage.getItem('ch_admin') === '1') {
         document.getElementById('password-overlay').style.display = 'none';
         document.getElementById('admin-panel').style.display = 'block';
+        cargarDatos();
     }
 
     /* ─── Firebase ─── */
     let propuestasCache = {};
     let agendaCache = {};
+    let historialCache = {};
     let loaded = 0;
 
     function cargarDatos() {
         if (typeof firebase === 'undefined' || typeof db === 'undefined') {
-            document.getElementById('propuestas-admin-container').innerHTML =
-                `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--orange)"></i><p>Firebase no se cargó. Verifica conexión o desactiva bloqueador.</p></div>`;
-            document.getElementById('agenda-editor-container').innerHTML =
-                `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--orange)"></i><p>Firebase no se cargó</p></div>`;
+            ['propuestas-admin-container','agenda-editor-container','historial-admin-container'].forEach(id => {
+                document.getElementById(id).innerHTML =
+                    `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--orange)"></i><p>Firebase no se cargó</p></div>`;
+            });
             return;
         }
 
         const connectedRef = db.ref('.info/connected');
         let fbTimeout = setTimeout(() => {
-            document.getElementById('propuestas-admin-container').innerHTML =
-                `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--orange)"></i><p>No hay conexión con Firebase. Revisa internet.</p></div>`;
-            document.getElementById('agenda-editor-container').innerHTML =
-                `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--orange)"></i><p>Sin conexión</p></div>`;
+            ['propuestas-admin-container','agenda-editor-container','historial-admin-container'].forEach(id => {
+                document.getElementById(id).innerHTML =
+                    `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--orange)"></i><p>Sin conexión a Firebase</p></div>`;
+            });
         }, 8000);
 
         connectedRef.on('value', snap => {
@@ -553,44 +569,41 @@
     function iniciarListeners() {
         db.ref('propuestas').on('value', snap => {
             propuestasCache = snap.val() || {};
-            loaded++;
-            if (loaded >= 2) renderTodo();
-            else if (loaded === 1) renderPropuestasAdmin();
+            renderPropuestasAdmin();
         });
 
         db.ref('agenda').on('value', snap => {
             agendaCache = snap.val() || {};
-            loaded++;
-            if (loaded >= 2) renderTodo();
-            else if (loaded === 1) renderAgendaEditor();
+            renderAgendaEditor();
         });
-    }
 
-    function renderTodo() {
-        renderPropuestasAdmin();
-        renderAgendaEditor();
+        db.ref('historial').on('value', snap => {
+            historialCache = snap.val() || {};
+            renderHistorialAdmin();
+        });
     }
 
     /* ─── Render Propuestas Admin ─── */
     function renderPropuestasAdmin() {
         const container = document.getElementById('propuestas-admin-container');
-        const items = Object.entries(propuestasCache).map(([key, val]) => ({
-            firebaseKey: key,
-            ...val
-        })).sort((a, b) => (b.votos || 0) - (a.votos || 0));
+        const items = Object.entries(propuestasCache).map(([key, val]) => ({ firebaseKey: key, ...val }))
+            .sort((a, b) => (b.votos || 0) - (a.votos || 0));
 
-        if (items.length === 0) {
+        if (!items.length) {
             container.innerHTML = `<div class="empty-state"><i class="fas fa-inbox"></i><p>No hay propuestas</p></div>`;
             return;
         }
+
+        const agendaItems = Object.entries(agendaCache).map(([k, v]) => ({ fbKey: k, ...v }))
+            .sort((a, b) => (a.orden || 0) - (b.orden || 0));
 
         container.innerHTML = `
             <table class="admin-table">
                 <thead><tr>
                     <th>Tema</th>
                     <th style="width:70px;text-align:center">Votos</th>
-                    <th style="width:220px;text-align:center">Semana</th>
-                    <th style="width:140px;text-align:right">Acción</th>
+                    <th style="width:200px;text-align:center">Agendar en</th>
+                    <th style="width:100px;text-align:right">Acción</th>
                 </tr></thead>
                 <tbody>
                     ${items.map(p => `
@@ -599,12 +612,11 @@
                             <td style="text-align:center"><span class="num-votos"><i class="fas fa-heart"></i> ${p.votos || 0}</span></td>
                             <td style="text-align:center">
                                 <select class="semana-select" id="ap-sel-${p.firebaseKey}">
-                                    ${['semana-1','semana-2','semana-3','semana-4'].map((sk, i) => {
-                                        const agendaItem = agendaCache[sk];
-                                        const ocupado = agendaItem && agendaItem.tema && agendaItem.tema.trim() !== '';
-                                        const label = ocupado ? `Semana ${i+1} (${agendaItem.tema})` : `Semana ${i+1} (Disponible)`;
-                                        return `<option value="${sk}">${label}</option>`;
+                                    ${agendaItems.map(ag => {
+                                        const ocupado = ag.tema && ag.tema.trim() !== '';
+                                        return `<option value="${ag.fbKey}">Sem ${ag.orden || '?'} ${ocupado ? '('+ag.tema+')' : '(Disponible)'}</option>`;
                                     }).join('')}
+                                    <option value="__NUEVA__">+ Crear nueva semana</option>
                                 </select>
                             </td>
                             <td style="text-align:right">
@@ -621,70 +633,188 @@
     /* ─── Render Agenda Editor ─── */
     function renderAgendaEditor() {
         const container = document.getElementById('agenda-editor-container');
-        const entries = Object.entries(agendaCache)
-            .sort(([,a], [,b]) => (a.semana || 0) - (b.semana || 0));
+        const items = Object.entries(agendaCache).map(([k, v]) => ({ fbKey: k, ...v }))
+            .sort((a, b) => (a.orden || 0) - (b.orden || 0));
 
-        if (entries.length === 0) {
-            container.innerHTML = `<div class="empty-state"><i class="fas fa-calendar"></i><p>No hay agenda</p></div>`;
+        if (!items.length) {
+            container.innerHTML = `<div class="empty-state"><i class="fas fa-calendar"></i><p>No hay semanas. Crea una nueva.</p></div>`;
+            return;
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+
+        container.innerHTML = `
+            <table class="admin-table">
+                <thead><tr>
+                    <th style="width:50px">#</th>
+                    <th>Fecha</th>
+                    <th>Tema</th>
+                    <th style="width:90px;text-align:center">Acción</th>
+                </tr></thead>
+                <tbody>
+                    ${items.map(item => {
+                        const pasada = item.fecha && item.fecha < today;
+                        return `<tr style="${pasada && item.tema ? 'opacity:0.6' : ''}">
+                            <td><strong>${item.orden || '?'}</strong></td>
+                            <td>
+                                <input type="date" class="agenda-edit-date" id="date-${item.fbKey}"
+                                       value="${item.fecha || ''}"
+                                       onchange="editarAgenda('${item.fbKey}', 'fecha', this.value)">
+                            </td>
+                            <td>
+                                <input type="text" class="agenda-edit-input" id="tema-${item.fbKey}"
+                                       value="${item.tema || ''}" placeholder="Disponible"
+                                       onchange="editarAgenda('${item.fbKey}', 'tema', this.value)">
+                            </td>
+                            <td style="text-align:center;white-space:nowrap">
+                                <button class="btn-sm btn-edit" onclick="reordenar('${item.fbKey}', -1)" title="Subir"><i class="fas fa-chevron-up"></i></button>
+                                <button class="btn-sm btn-edit" onclick="reordenar('${item.fbKey}', 1)" title="Bajar"><i class="fas fa-chevron-down"></i></button>
+                                ${item.tema && item.tema.trim() ? `<button class="btn-sm" style="background:var(--teal, #38b2ac);color:white" onclick="archivarSemana('${item.fbKey}')" title="Archivar"><i class="fas fa-archive"></i></button>` : ''}
+                            </td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>
+            <p style="font-size:0.75rem;color:var(--text-light);margin-top:0.5rem;">
+                <i class="fas fa-info-circle"></i> Edita directamente. Usa el botón <i class="fas fa-archive"></i> para archivar un tema completado al historial.
+            </p>
+        `;
+    }
+
+    /* ─── Render Historial Admin ─── */
+    function renderHistorialAdmin() {
+        const container = document.getElementById('historial-admin-container');
+        const items = Object.entries(historialCache).map(([k, v]) => ({ fbKey: k, ...v }))
+            .sort((a, b) => ((a.fecha || '') > (b.fecha || '') ? -1 : 1));
+
+        if (!items.length) {
+            container.innerHTML = `<div class="empty-state"><i class="fas fa-clock"></i><p>No hay temas archivados</p></div>`;
             return;
         }
 
         container.innerHTML = `
             <table class="admin-table">
                 <thead><tr>
-                    <th style="width:80px">Semana</th>
                     <th>Fecha</th>
                     <th>Tema</th>
-                    <th style="width:60px;text-align:center">Ord</th>
+                    <th style="width:60px;text-align:right"></th>
                 </tr></thead>
                 <tbody>
-                    ${entries.map(([key, item]) => `
+                    ${items.map(item => `
                         <tr>
-                            <td><strong>${item.semana || '—'}</strong></td>
-                            <td>
-                                <input type="date" class="agenda-edit-date" id="date-${key}"
-                                       value="${item.fecha || ''}"
-                                       onchange="editarAgenda('${key}', 'fecha', this.value)">
-                            </td>
-                            <td>
-                                <input type="text" class="agenda-edit-input" id="tema-${key}"
-                                       value="${item.tema || ''}" placeholder="Disponible"
-                                       onchange="editarAgenda('${key}', 'tema', this.value)">
-                            </td>
-                            <td style="text-align:center">
-                                <button class="btn-sm btn-edit" onclick="reordenar('${key}', -1)" title="Subir"><i class="fas fa-chevron-up"></i></button>
-                                <button class="btn-sm btn-edit" onclick="reordenar('${key}', 1)" title="Bajar"><i class="fas fa-chevron-down"></i></button>
+                            <td>${item.fecha || '—'}</td>
+                            <td>${item.tema || '—'}</td>
+                            <td style="text-align:right">
+                                <button class="btn-sm btn-delete" onclick="eliminarHistorial('${item.fbKey}')"><i class="fas fa-trash"></i></button>
                             </td>
                         </tr>
                     `).join('')}
                 </tbody>
             </table>
-            <p style="font-size:0.75rem;color:var(--text-light);margin-top:0.5rem;">
-                <i class="fas fa-info-circle"></i> Edita los campos directamente y se guardan automáticamente.
-            </p>
         `;
     }
 
     /* ─── Admin Actions ─── */
     function aprobarTema(propuestaId) {
         const select = document.getElementById('ap-sel-' + propuestaId);
-        const semanaKey = select ? select.value : 'semana-1';
+        const valor = select ? select.value : '';
         const propuesta = propuestasCache[propuestaId];
         if (!propuesta) { toast('Error: propuesta no encontrada'); return; }
 
-        const agendaItem = agendaCache[semanaKey];
+        if (valor === '__NUEVA__') {
+            agregarSemanaParaPropuesta(propuestaId);
+            return;
+        }
+
+        const agendaItem = agendaCache[valor];
         if (agendaItem && agendaItem.tema && agendaItem.tema.trim() !== '') {
-            if (!confirm('La semana ' + semanaKey.replace('semana-', '') + ' ya tiene tema. ¿Sobrescribir?')) return;
+            if (!confirm('Esa semana ya tiene tema. ¿Sobrescribir?')) return;
         }
 
         const updates = {};
-        updates['agenda/' + semanaKey + '/tema'] = propuesta.tema;
+        updates['agenda/' + valor + '/tema'] = propuesta.tema;
         updates['propuestas/' + propuestaId] = null;
         updates['votantes/' + propuestaId] = null;
 
         db.ref().update(updates)
-            .then(() => toast('✓ Tema aprobado en ' + semanaKey.replace('semana-', 'Semana ')))
+            .then(() => toast('✓ Tema aprobado'))
             .catch(() => toast('Error al aprobar'));
+    }
+
+    function agregarSemanaParaPropuesta(propuestaId) {
+        const propuesta = propuestasCache[propuestaId];
+        if (!propuesta) return;
+
+        const agendaItems = Object.entries(agendaCache).map(([k, v]) => ({ fbKey: k, ...v }));
+        const maxOrden = agendaItems.reduce((m, i) => Math.max(m, i.orden || 0), 0);
+        const ultimaFecha = agendaItems
+            .filter(i => i.fecha)
+            .sort((a, b) => a.fecha.localeCompare(b.fecha))
+            .pop();
+
+        let nuevaFecha;
+        if (ultimaFecha) {
+            const d = new Date(ultimaFecha.fecha + 'T12:00:00');
+            d.setDate(d.getDate() + 7);
+            nuevaFecha = d.toISOString().split('T')[0];
+        } else {
+            nuevaFecha = nextFridays(1)[0];
+        }
+
+        const r = db.ref('agenda').push();
+        const updates = {};
+        updates['agenda/' + r.key] = { fecha: nuevaFecha, tema: propuesta.tema, orden: maxOrden + 1 };
+        updates['propuestas/' + propuestaId] = null;
+        updates['votantes/' + propuestaId] = null;
+
+        db.ref().update(updates)
+            .then(() => toast('✓ Nueva semana creada y tema asignado'))
+            .catch(() => toast('Error al crear semana'));
+    }
+
+    function agregarSemana() {
+        const items = Object.entries(agendaCache).map(([k, v]) => ({ fbKey: k, ...v }));
+        const maxOrden = items.reduce((m, i) => Math.max(m, i.orden || 0), 0);
+        const ultimaFecha = items.filter(i => i.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha)).pop();
+
+        let nuevaFecha;
+        if (ultimaFecha) {
+            const d = new Date(ultimaFecha.fecha + 'T12:00:00');
+            d.setDate(d.getDate() + 7);
+            nuevaFecha = d.toISOString().split('T')[0];
+        } else {
+            nuevaFecha = nextFridays(1)[0];
+        }
+
+        db.ref('agenda').push({ fecha: nuevaFecha, tema: '', orden: maxOrden + 1 })
+            .then(() => toast('✓ Semana agregada'))
+            .catch(() => toast('Error al agregar semana'));
+    }
+
+    function archivarSemana(itemKey) {
+        const item = agendaCache[itemKey];
+        if (!item || !item.tema || !item.tema.trim()) {
+            toast('No hay tema que archivar');
+            return;
+        }
+
+        if (!confirm(`¿Archivar "${item.tema}" al historial?`)) return;
+
+        const historialRef = db.ref('historial').push();
+        const updates = {};
+        updates['historial/' + historialRef.key] = { fecha: item.fecha || '', tema: item.tema };
+        updates['agenda/' + itemKey] = null;
+
+        db.ref().update(updates)
+            .then(() => toast('✓ Archivado al historial'))
+            .catch(() => toast('Error al archivar'));
+    }
+
+    function eliminarHistorial(itemKey) {
+        if (!confirm('¿Eliminar del historial?')) return;
+        db.ref('historial/' + itemKey).remove()
+            .then(() => toast('Eliminado'))
+            .catch(() => toast('Error'));
     }
 
     function eliminarPropuesta(propuestaId) {
@@ -697,28 +827,24 @@
             .catch(() => toast('Error al eliminar'));
     }
 
-    function editarAgenda(semanaKey, campo, valor) {
-        const ref = db.ref('agenda/' + semanaKey + '/' + campo);
-        ref.set(valor)
-            .then(() => toast('✓ Actualizado'))
+    function editarAgenda(itemKey, campo, valor) {
+        db.ref('agenda/' + itemKey + '/' + campo).set(valor)
+            .then(() => { /* Silencioso para evitar spam de toasts */ })
             .catch(() => toast('Error al actualizar'));
     }
 
-    function reordenar(semanaKey, direccion) {
-        const entries = Object.entries(agendaCache)
-            .sort(([,a], [,b]) => (a.semana || 0) - (b.semana || 0));
-        const idx = entries.findIndex(([k]) => k === semanaKey);
+    function reordenar(itemKey, direccion) {
+        const items = Object.entries(agendaCache).map(([k, v]) => ({ fbKey: k, ...v }))
+            .sort((a, b) => (a.orden || 0) - (b.orden || 0));
+        const idx = items.findIndex(i => i.fbKey === itemKey);
         if (idx === -1) return;
         const newIdx = idx + direccion;
-        if (newIdx < 0 || newIdx >= entries.length) return;
+        if (newIdx < 0 || newIdx >= items.length) return;
 
-        const current = entries[idx][1];
-        const neighbor = entries[newIdx][1];
-        const tempSemana = current.semana;
-
+        const temp = items[idx].orden;
         const updates = {};
-        updates['agenda/' + entries[idx][0] + '/semana'] = neighbor.semana;
-        updates['agenda/' + entries[newIdx][0] + '/semana'] = tempSemana;
+        updates['agenda/' + items[idx].fbKey + '/orden'] = items[newIdx].orden;
+        updates['agenda/' + items[newIdx].fbKey + '/orden'] = temp;
 
         db.ref().update(updates)
             .then(() => toast('✓ Reordenado'))
@@ -730,26 +856,20 @@
         const btn = document.getElementById('btn-limpiar');
         btn.disabled = true;
 
-        const items = Object.entries(propuestasCache).map(([key, val]) => ({
-            firebaseKey: key,
-            ...val
-        }));
-
+        const items = Object.entries(propuestasCache).map(([key, val]) => ({ firebaseKey: key, ...val }));
         const grupos = {};
         items.forEach(p => {
-            const normalizado = p.tema.trim().toLowerCase();
-            if (!grupos[normalizado]) grupos[normalizado] = [];
-            grupos[normalizado].push(p);
+            const n = p.tema.trim().toLowerCase();
+            if (!grupos[n]) grupos[n] = [];
+            grupos[n].push(p);
         });
 
         const updates = {};
         let eliminadas = 0;
-
-        Object.values(grupos).forEach(grupo => {
-            if (grupo.length > 1) {
-                grupo.sort((a, b) => (b.votos || 0) - (a.votos || 0));
-                const keep = grupo[0];
-                grupo.slice(1).forEach(p => {
+        Object.values(grupos).forEach(g => {
+            if (g.length > 1) {
+                g.sort((a, b) => (b.votos || 0) - (a.votos || 0));
+                g.slice(1).forEach(p => {
                     updates['propuestas/' + p.firebaseKey] = null;
                     updates['votantes/' + p.firebaseKey] = null;
                     eliminadas++;
@@ -757,18 +877,28 @@
             }
         });
 
-        if (eliminadas === 0) {
+        if (!eliminadas) {
             toast('No se encontraron duplicados');
             btn.disabled = false;
             return;
         }
 
         db.ref().update(updates)
-            .then(() => {
-                toast('✓ ' + eliminadas + ' propuesta(s) duplicada(s) eliminada(s)');
-            })
+            .then(() => toast('✓ ' + eliminadas + ' duplicada(s) eliminada(s)'))
             .catch(() => toast('Error al limpiar'))
             .finally(() => { btn.disabled = false; });
+    }
+
+    /* ─── nextFridays helper ─── */
+    function nextFridays(n) {
+        const r = [];
+        const t = new Date(); t.setHours(0,0,0,0);
+        let d = (5 - t.getDay() + 7) % 7 || 7;
+        for (let i = 0; i < n; i++) {
+            const x = new Date(t); x.setDate(x.getDate() + d + i * 7);
+            r.push(x.toISOString().split('T')[0]);
+        }
+        return r;
     }
 
     console.log('🔐 Admin Panel — Círculo de Hombres');
