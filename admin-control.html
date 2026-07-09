@@ -503,6 +503,42 @@
         return d.getDate() + ' ' + meses[d.getMonth()] + ' (' + dias[d.getDay()] + ')';
     }
 
+    /* ─── Variables de estado ─── */
+    let propuestasCache = {};
+    let agendaCache = {};
+    let historialCache = {};
+    let fbListo = false;
+
+    /* ─── Iniciar Firebase inmediatamente ─── */
+    (function initFB() {
+        if (typeof firebase === 'undefined' || typeof db === 'undefined') {
+            const msg = 'Firebase no se cargó. Verifica conexión o desactiva el bloqueador de anuncios.';
+            ['propuestas-admin-container','agenda-editor-container','historial-admin-container'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--orange)"></i><p>${msg}</p></div>`;
+            });
+            return;
+        }
+
+        const connectedRef = db.ref('.info/connected');
+        let fbTimeout = setTimeout(() => {
+            if (!fbListo) {
+                ['propuestas-admin-container','agenda-editor-container','historial-admin-container'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--orange)"></i><p>Sin conexión a Firebase. Revisa internet.</p></div>`;
+                });
+            }
+        }, 8000);
+
+        connectedRef.on('value', snap => {
+            if (snap.val() === true) {
+                clearTimeout(fbTimeout);
+                fbListo = true;
+                conectarFirebase();
+            }
+        });
+    })();
+
     /* ─── Password ─── */
     function checkPassword() {
         const pwd = document.getElementById('pwd-input').value;
@@ -511,7 +547,7 @@
             document.getElementById('admin-panel').style.display = 'block';
             sessionStorage.setItem('ch_admin', '1');
             document.getElementById('pwd-error').style.display = 'none';
-            cargarDatos();
+            mostrarDatos();
         } else {
             document.getElementById('pwd-error').style.display = 'block';
             document.getElementById('pwd-input').value = '';
@@ -532,55 +568,32 @@
     if (sessionStorage.getItem('ch_admin') === '1') {
         document.getElementById('password-overlay').style.display = 'none';
         document.getElementById('admin-panel').style.display = 'block';
-        cargarDatos();
+        setTimeout(() => mostrarDatos(), 300);
     }
 
     /* ─── Firebase ─── */
-    let propuestasCache = {};
-    let agendaCache = {};
-    let historialCache = {};
-    let loaded = 0;
-
-    function cargarDatos() {
-        if (typeof firebase === 'undefined' || typeof db === 'undefined') {
-            ['propuestas-admin-container','agenda-editor-container','historial-admin-container'].forEach(id => {
-                document.getElementById(id).innerHTML =
-                    `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--orange)"></i><p>Firebase no se cargó</p></div>`;
-            });
-            return;
-        }
-
-        const connectedRef = db.ref('.info/connected');
-        let fbTimeout = setTimeout(() => {
-            ['propuestas-admin-container','agenda-editor-container','historial-admin-container'].forEach(id => {
-                document.getElementById(id).innerHTML =
-                    `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--orange)"></i><p>Sin conexión a Firebase</p></div>`;
-            });
-        }, 8000);
-
-        connectedRef.on('value', snap => {
-            if (snap.val() === true) {
-                clearTimeout(fbTimeout);
-                iniciarListeners();
-            }
+    function conectarFirebase() {
+        db.ref('propuestas').on('value', snap => {
+            propuestasCache = snap.val() || {};
+            mostrarDatos();
+        });
+        db.ref('agenda').on('value', snap => {
+            agendaCache = snap.val() || {};
+            mostrarDatos();
+        });
+        db.ref('historial').on('value', snap => {
+            historialCache = snap.val() || {};
+            mostrarDatos();
         });
     }
 
-    function iniciarListeners() {
-        db.ref('propuestas').on('value', snap => {
-            propuestasCache = snap.val() || {};
-            renderPropuestasAdmin();
-        });
-
-        db.ref('agenda').on('value', snap => {
-            agendaCache = snap.val() || {};
-            renderAgendaEditor();
-        });
-
-        db.ref('historial').on('value', snap => {
-            historialCache = snap.val() || {};
-            renderHistorialAdmin();
-        });
+    function mostrarDatos() {
+        if (!fbListo) return;
+        const panel = document.getElementById('admin-panel');
+        if (panel && panel.style.display !== 'block') return;
+        renderPropuestasAdmin();
+        renderAgendaEditor();
+        renderHistorialAdmin();
     }
 
     /* ─── Render Propuestas Admin ─── */
