@@ -576,7 +576,7 @@
         </section>
 
         <!-- LOGS -->
-        <section>
+        <section id="logs-section">
             <h2 class="section-title"><i class="fas fa-history" style="color:var(--teal)"></i> Registro de Actividad</h2>
             <p style="font-size:0.85rem;color:var(--text-light);margin-bottom:0.75rem;">Últimas acciones registradas (se conservan 30 días).</p>
             <div id="logs-container" style="max-height:300px;overflow-y:auto;font-size:0.85rem;background:var(--cream);border-radius:var(--radius-sm);padding:0.75rem 1rem"><p style="color:var(--text-light)">Cargando...</p></div>
@@ -736,6 +736,8 @@
         if (!fbListo) return;
         const panel = document.getElementById('admin-panel');
         if (panel && panel.style.display !== 'block') return;
+        const logSection = document.getElementById('logs-section');
+        if (logSection) logSection.style.display = currentUser === 'Principal' ? '' : 'none';
         renderPropuestasAdmin();
         renderAgendaEditor();
         renderHistorialAdmin();
