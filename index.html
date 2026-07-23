@@ -634,7 +634,10 @@
             ¿Qué tema te gustaría tratar en el círculo? Proponlo y la comunidad votará.
         </p>
         <div class="proposer-form">
-            <input type="text" id="nuevo-tema-input" placeholder="Escribe tu propuesta..." maxlength="120" autocomplete="off">
+            <div style="position:relative;flex:1">
+                <textarea id="nuevo-tema-input" placeholder="Escribe tu propuesta..." maxlength="500" rows="2" style="width:100%;padding:0.75rem 1rem;border:2px solid #e2e8f0;border-radius:var(--radius-sm);font-size:0.95rem;outline:none;resize:vertical;font-family:inherit;transition:border var(--transition);box-sizing:border-box"></textarea>
+                <div id="char-count" style="text-align:right;font-size:0.75rem;color:var(--text-light);margin-top:0.25rem"><span id="char-used">0</span>/500</div>
+            </div>
             <button class="btn-proponer" id="btn-proponer" onclick="proponerTema()">
                 <i class="fas fa-plus"></i> Proponer
             </button>
@@ -816,10 +819,12 @@
         }
 
         window.reproponer = function(tema) {
-            document.getElementById('nuevo-tema-input').value = tema;
-            document.getElementById('nuevo-tema-input').focus();
+            const inp = document.getElementById('nuevo-tema-input');
+            inp.value = tema;
+            document.getElementById('char-used').textContent = tema.length;
+            inp.focus();
+            inp.scrollIntoView({ behavior: 'smooth', block: 'center' });
             toast('Tema copiado. Dale "Proponer" para someterlo a votación');
-        };
 
         /* ─── PROPUESTAS ─── */
         propuestasRef.on('value', snap => {
@@ -886,8 +891,12 @@
                 .finally(() => { btn.disabled = false; });
         };
 
-        document.getElementById('nuevo-tema-input').addEventListener('keydown', e => {
-            if (e.key === 'Enter') proponerTema();
+        const temaInput = document.getElementById('nuevo-tema-input');
+        temaInput.addEventListener('input', function() {
+            document.getElementById('char-used').textContent = this.value.length;
+        });
+        temaInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); proponerTema(); }
         });
 
         console.log('🏳️‍🌈 Círculo de Hombres — conectado');

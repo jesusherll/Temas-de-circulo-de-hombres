@@ -741,7 +741,7 @@
                 <tbody>
                     ${items.map(p => `
                         <tr>
-                            <td><strong>${p.tema}</strong></td>
+                            <td><input type="text" class="agenda-edit-input" value="${p.tema.replace(/"/g, '&quot;')}" onchange="editarPropuesta('${p.firebaseKey}', this.value)"></td>
                             <td style="text-align:center"><span class="num-votos"><i class="fas fa-heart"></i> ${p.votos || 0}</span></td>
                             <td style="text-align:center">
                                 <button class="btn-sm btn-approve" onclick="aprobarTema(this, '${p.firebaseKey}')">
@@ -948,6 +948,14 @@
         db.ref('historial/' + itemKey).remove()
             .then(() => toast('Eliminado'))
             .catch(() => toast('Error'));
+    }
+
+    function editarPropuesta(propuestaId, nuevoTexto) {
+        const txt = nuevoTexto.trim();
+        if (!txt || txt.length < 1) { toast('El tema no puede estar vacío'); return; }
+        db.ref('propuestas/' + propuestaId + '/tema').set(txt)
+            .then(() => toast('✓ Tema actualizado'))
+            .catch(() => toast('Error al actualizar'));
     }
 
     function eliminarPropuesta(propuestaId) {
