@@ -575,10 +575,16 @@
             </div>
         </section>
 
+        <!-- LOGS -->
+        <section>
+            <h2 class="section-title"><i class="fas fa-history" style="color:var(--teal)"></i> Registro de Actividad</h2>
+            <p style="font-size:0.85rem;color:var(--text-light);margin-bottom:0.75rem;">Últimas acciones registradas (se conservan 30 días).</p>
+            <div id="logs-container" style="max-height:300px;overflow-y:auto;font-size:0.85rem;background:var(--cream);border-radius:var(--radius-sm);padding:0.75rem 1rem"><p style="color:var(--text-light)">Cargando...</p></div>
+        </section>
+
         <!-- LIMPIAR -->
         <section>
             <h2 class="section-title"><i class="fas fa-broom" style="color:var(--orange)"></i> Mantenimiento</h2>
-            <p style="font-size:0.85rem;color:var(--text-light);margin-bottom:0.75rem;">
                 Detecta y elimina propuestas duplicadas (conserva la que más votos tenga).
             </p>
             <button class="btn-clean" id="btn-limpiar" onclick="limpiarRepetidas()">
@@ -597,7 +603,8 @@
 <div class="toast" id="toast"></div>
 
 <script>
-    const PASSWORD = 'Circulo2026';
+    const PASSWORDS = ['Circulo2026', 'Admin2026', 'Hombres2026'];
+    let currentUser = '';
 
     /* ─── Utilidades ─── */
     function toggleHelp(btn) {
@@ -657,14 +664,30 @@
         });
     })();
 
+    function getAdminLabel(pwd) {
+        const map = { 'Circulo2026': 'Principal', 'Admin2026': 'Admin2', 'Hombres2026': 'Admin3' };
+        return map[pwd] || pwd;
+    }
+
+    function logAction(accion, detalle) {
+        db.ref('logs').push().set({
+            usuario: currentUser,
+            accion: accion,
+            detalle: detalle,
+            timestamp: Date.now()
+        });
+    }
+
     /* ─── Password ─── */
     function checkPassword() {
         const pwd = document.getElementById('pwd-input').value;
-        if (pwd === PASSWORD) {
+        if (PASSWORDS.includes(pwd)) {
+            currentUser = getAdminLabel(pwd);
             document.getElementById('password-overlay').style.display = 'none';
             document.getElementById('admin-panel').style.display = 'block';
             sessionStorage.setItem('ch_admin', '1');
             document.getElementById('pwd-error').style.display = 'none';
+            logAction('Inició sesión', '');
             mostrarDatos();
         } else {
             document.getElementById('pwd-error').style.display = 'block';
@@ -703,6 +726,7 @@
             historialCache = snap.val() || {};
             mostrarDatos();
         });
+        db.ref('logs').orderByChild('timestamp').limitToLast(50).on('value', snap => renderLogs(snap.val()));
     }
 
     function mostrarDatos() {
@@ -712,6 +736,7 @@
         renderPropuestasAdmin();
         renderAgendaEditor();
         renderHistorialAdmin();
+        if (document.getElementById('logs-container')) renderLogs();
     }
 
     /* ─── Render Propuestas Admin ─── */
@@ -863,7 +888,7 @@
             updates['propuestas/' + propuestaId] = null;
             updates['votantes/' + propuestaId] = null;
             db.ref().update(updates)
-                .then(() => toast('✓ Asignado a semana ' + (semana.orden || '?')))
+                .then(() => { toast('✓ Asignado a semana ' + (semana.orden || '?')); logAction('Aprobó tema', propuesta.tema + ' → Semana ' + (semana.orden || '?')); })
                 .catch(() => { toast('Error al aprobar'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Aprobar'; });
         } else {
             agregarSemanaParaPropuesta(propuestaId, btn);
@@ -900,7 +925,7 @@
         updates['votantes/' + propuestaId] = null;
 
         db.ref().update(updates)
-            .then(() => toast('✓ Nueva semana creada con el tema'))
+            .then(() => { toast('✓ Nueva semana creada con el tema'); logAction('Creó semana + aprobó', propuesta.tema); })
             .catch(() => toast('Error al crear semana'))
             .finally(() => { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Aprobar'; } });
     }
@@ -920,7 +945,7 @@
         }
 
         db.ref('agenda').push({ fecha: nuevaFecha, tema: '', orden: maxOrden + 1 })
-            .then(() => toast('✓ Semana agregada'))
+            .then(() => { toast('✓ Semana agregada'); logAction('Agregó semana', 'Semana ' + (maxOrden + 1) + ' → ' + nuevaFecha); })
             .catch(() => toast('Error al agregar semana'));
     }
 
@@ -939,38 +964,41 @@
         updates['agenda/' + itemKey] = null;
 
         db.ref().update(updates)
-            .then(() => toast('✓ Archivado al historial'))
+            .then(() => { toast('✓ Archivado al historial'); logAction('Archivó tema', item.tema); })
             .catch(() => toast('Error al archivar'));
     }
 
     function eliminarHistorial(itemKey) {
         if (!confirm('¿Eliminar del historial?')) return;
+        const item = historialCache[itemKey];
         db.ref('historial/' + itemKey).remove()
-            .then(() => toast('Eliminado'))
+            .then(() => { toast('Eliminado'); logAction('Eliminó del historial', (item && item.tema) || 'desconocido'); })
             .catch(() => toast('Error'));
     }
 
     function editarPropuesta(propuestaId, nuevoTexto) {
         const txt = nuevoTexto.trim();
         if (!txt || txt.length < 1) { toast('El tema no puede estar vacío'); return; }
+        const anterior = (propuestasCache[propuestaId] && propuestasCache[propuestaId].tema) || '';
         db.ref('propuestas/' + propuestaId + '/tema').set(txt)
-            .then(() => toast('✓ Tema actualizado'))
+            .then(() => { toast('✓ Tema actualizado'); logAction('Editó propuesta', anterior + ' → ' + txt); })
             .catch(() => toast('Error al actualizar'));
     }
 
     function eliminarPropuesta(propuestaId) {
         if (!confirm('¿Eliminar esta propuesta?')) return;
+        const tema = (propuestasCache[propuestaId] && propuestasCache[propuestaId].tema) || 'desconocido';
         const updates = {};
         updates['propuestas/' + propuestaId] = null;
         updates['votantes/' + propuestaId] = null;
         db.ref().update(updates)
-            .then(() => toast('Propuesta eliminada'))
+            .then(() => { toast('Propuesta eliminada'); logAction('Eliminó propuesta', tema); })
             .catch(() => toast('Error al eliminar'));
     }
 
     function editarAgenda(itemKey, campo, valor) {
         db.ref('agenda/' + itemKey + '/' + campo).set(valor)
-            .then(() => { /* Silencioso para evitar spam de toasts */ })
+            .then(() => { if (campo === 'tema') { logAction('Editó agenda (tema)', valor || 'vacío'); } })
             .catch(() => toast('Error al actualizar'));
     }
 
@@ -990,7 +1018,7 @@
         updates['agenda/' + items[newIdx].fbKey + '/orden'] = items[idx].orden;
 
         db.ref().update(updates)
-            .then(() => toast('✓ Reordenado'))
+            .then(() => { toast('✓ Reordenado'); logAction('Reordenó agenda', 'Semana ' + items[idx].orden + ' ↔ ' + items[newIdx].orden); })
             .catch(() => toast('Error al reordenar'));
     }
 
@@ -1027,9 +1055,27 @@
         }
 
         db.ref().update(updates)
-            .then(() => toast('✓ ' + eliminadas + ' duplicada(s) eliminada(s)'))
+            .then(() => { toast('✓ ' + eliminadas + ' duplicada(s) eliminada(s)'); logAction('Limpió duplicados', eliminadas + ' eliminadas'); })
             .catch(() => toast('Error al limpiar'))
             .finally(() => { btn.disabled = false; });
+    }
+
+    /* ─── Logs ─── */
+    function renderLogs(data) {
+        const c = document.getElementById('logs-container');
+        if (!c) return;
+        if (!data || !Object.keys(data).length) {
+            c.innerHTML = '<p style="color:var(--text-light)">Sin actividad registrada aún.</p>';
+            return;
+        }
+        const items = Object.entries(data).map(([k, v]) => ({ fbKey: k, ...v }))
+            .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        c.innerHTML = items.map(item => {
+            const d = item.timestamp ? new Date(item.timestamp) : null;
+            const ts = d ? d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+            const color = item.usuario === 'Principal' ? 'var(--red)' : item.usuario === 'Admin2' ? 'var(--blue)' : 'var(--purple)';
+            return '<div style="padding:0.4rem 0;border-bottom:1px solid #edf2f7;display:flex;gap:0.5rem;align-items:center"><span style="font-weight:700;color:' + color + ';font-size:0.75rem">' + item.usuario + '</span><span style="font-size:0.75rem;color:var(--text-light);min-width:80px">' + ts + '</span><span style="font-size:0.8rem">' + item.accion + (item.detalle ? ': ' + item.detalle : '') + '</span></div>';
+        }).join('');
     }
 
     /* ─── nextFridays helper ─── */
