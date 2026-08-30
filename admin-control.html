@@ -667,19 +667,24 @@
         });
     })();
 
-    function getAdminLabel(pwd) {
-        const map = { 'Circulo2026': 'Principal', 'Admin2026': 'Admin2', 'Hombres2026': 'Admin3' };
-        return map[pwd] || pwd;
-    }
+function getAdminLabel(pwd) {
+    const map = {
+        'Circulo2026': 'Bruno',   // Coordinador
+        'Admin2026' : 'Luis',     // Admin2
+        'Hombres2026': 'Jesús'    // Admin3
+    };
+    return map[pwd] || pwd;
+}
 
-    function logAction(accion, detalle) {
-        db.ref('logs').push().set({
-            usuario: currentUser,
-            accion: accion,
-            detalle: detalle,
-            timestamp: Date.now()
-        });
-    }
+function logAction(accion, detalle) {
+    const user = currentUser || 'Anonimo';
+    db.ref('logs').push().set({
+        usuario: user,
+        accion: accion,
+        detalle: detalle,
+        timestamp: Date.now()
+    });
+}
 
     /* ─── Password ─── */
     function checkPassword() {
@@ -737,7 +742,7 @@
         const panel = document.getElementById('admin-panel');
         if (panel && panel.style.display !== 'block') return;
         const logSection = document.getElementById('logs-section');
-        if (logSection) logSection.style.display = currentUser === 'Principal' ? '' : 'none';
+        if (logSection) logSection.style.display = '';
         renderPropuestasAdmin();
         renderAgendaEditor();
         renderHistorialAdmin();
@@ -1078,7 +1083,10 @@
         c.innerHTML = items.map(item => {
             const d = item.timestamp ? new Date(item.timestamp) : null;
             const ts = d ? d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
-            const color = item.usuario === 'Principal' ? 'var(--red)' : item.usuario === 'Admin2' ? 'var(--blue)' : 'var(--purple)';
+const color = item.usuario === 'Bruno'   ? 'var(--red)' :
+    item.usuario === 'Luis'    ? 'var(--blue)' :
+    item.usuario === 'Jesús'  ? 'var(--purple)' :
+    'var(--text-light)';
             return '<div style="padding:0.4rem 0;border-bottom:1px solid #edf2f7;display:flex;gap:0.5rem;align-items:center"><span style="font-weight:700;color:' + color + ';font-size:0.75rem">' + item.usuario + '</span><span style="font-size:0.75rem;color:var(--text-light);min-width:80px">' + ts + '</span><span style="font-size:0.8rem">' + item.accion + (item.detalle ? ': ' + item.detalle : '') + '</span></div>';
         }).join('');
     }
