@@ -160,6 +160,13 @@
             font-size: 1.1rem;
         }
 
+        .welcome-message {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-left: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
         .admin-bar .btn-salir {
             background: none;
             border: 2px solid var(--red);
@@ -522,6 +529,7 @@
             <div>
                 <span class="badge"><i class="fas fa-shield-halved"></i> Admin</span>
                 <span class="admin-title">Panel de Control</span>
+
             </div>
             <button class="btn-salir" onclick="salir()"><i class="fas fa-sign-out-alt"></i> Salir</button>
         </div>
@@ -542,7 +550,8 @@
                 </ul>
                 <div class="help-note">
                     <i class="fas fa-info-circle" style="color:var(--blue)"></i> Todos los cambios se sincronizan en tiempo real con Firebase.
-                </div>
+            <span class="welcome-message" id="welcome-message">Bienvenido BRUNO</span>
+            </div>
             </div>
         </div>
 
@@ -607,6 +616,11 @@
 
 <script>
     const PASSWORDS = ['Circulo2026', 'Admin2026', 'Hombres2026'];
+    const WELCOME_MESSAGES = {
+        'Circulo2026': 'Bienvenido BRUNO',
+        'Admin2026': 'Bienvenido LUIS',
+        'Hombres2026': 'Bienvenido JESÚS'
+    };
     let currentUser = '';
 
     /* ─── Utilidades ─── */
@@ -696,6 +710,7 @@ function logAction(accion, detalle) {
             sessionStorage.setItem('ch_admin', '1');
             document.getElementById('pwd-error').style.display = 'none';
             logAction('Inició sesión', '');
+            updateWelcomeMessage();
             mostrarDatos();
         } else {
             document.getElementById('pwd-error').style.display = 'block';
@@ -707,6 +722,21 @@ function logAction(accion, detalle) {
     function salir() {
         sessionStorage.removeItem('ch_admin');
         window.location.href = 'index.html';
+    }
+
+    function updateWelcomeMessage() {
+        const welcomeMap = {
+            'Bruno': 'Bienvenido BRUNO',
+            'Luis': 'Bienvenido LUIS',
+            'Jesús': 'Bienvenido JESÚS'
+        };
+        const msg = welcomeMap[currentUser] || 'Bienvenido Admin';
+        const el = document.getElementById('welcome-message');
+        if (el) {
+            el.textContent = msg;
+            el.style.color = currentUser === 'Bruno' ? 'var(--red)' : currentUser === 'Luis' ? 'var(--blue)' : currentUser === 'Jesús' ? 'var(--purple)' : 'var(--text-light)';
+            el.style.display = 'inline-block';
+        }
     }
 
     document.getElementById('pwd-input').addEventListener('keydown', e => {
